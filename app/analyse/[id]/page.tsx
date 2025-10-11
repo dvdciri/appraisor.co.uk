@@ -256,6 +256,7 @@ function InvestmentCalculator({ propertyId }: { propertyId: string | undefined }
     
     if (savedData) {
       // Load saved data (defaults are already set when property was first searched)
+      console.log('Loading calculator data with purchase price:', savedData.purchaseFinance.purchasePrice || 'Not set')
       setPurchaseType(savedData.purchaseType)
       setIncludeFeesInLoan(savedData.includeFeesInLoan)
       setBridgingDetails(savedData.bridgingDetails)
@@ -2057,12 +2058,10 @@ export default function InvestPage() {
     <div className="min-h-screen w-full bg-gray-950">
       <Header 
         showBackButton={true}
-        onBackClick={() => {
-          const ref = searchParams.get('ref')
-          const url = ref ? `/details/${params.id}?ref=${ref}` : `/details/${params.id}`
-          router.push(url)
-        }}
-        backButtonText="Back to Property Details"
+        onBackClick={() => router.back()}
+        backButtonText="Back"
+        showHomeButton={true}
+        onHomeClick={() => router.push('/')}
       />
 
       {/* Content - Scrollable */}

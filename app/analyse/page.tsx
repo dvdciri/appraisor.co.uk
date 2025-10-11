@@ -1930,7 +1930,9 @@ export default function InvestPage() {
       <Header 
         showBackButton={true}
         onBackClick={() => router.back()}
-        backButtonText="Back to Property Details"
+        backButtonText="Back"
+        showHomeButton={true}
+        onHomeClick={() => router.push('/')}
       />
 
       {/* Content - Scrollable */}

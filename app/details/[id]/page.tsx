@@ -187,6 +187,8 @@ export default function PropertyDetailsPage() {
           showBackButton={true}
           onBackClick={handleBackClick}
           backButtonText="Back"
+          showHomeButton={true}
+          onHomeClick={() => router.push('/')}
         />
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
@@ -206,6 +208,8 @@ export default function PropertyDetailsPage() {
           showBackButton={true}
           onBackClick={handleBackClick}
           backButtonText="Back"
+          showHomeButton={true}
+          onHomeClick={() => router.push('/')}
         />
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
@@ -224,6 +228,8 @@ export default function PropertyDetailsPage() {
         showBackButton={true}
         onBackClick={handleBackClick}
         backButtonText="Back"
+        showHomeButton={true}
+        onHomeClick={() => router.push('/')}
       />
       <div className="p-6">
         <div className="max-w-7xl mx-auto space-y-8">

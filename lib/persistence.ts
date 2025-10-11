@@ -10,6 +10,35 @@ export interface PersistedPropertyData {
   lastUpdated: number
 }
 
+// Extended property data stored in propertyDataStore
+// This includes the full property data plus additional calculated fields
+export interface PropertyDataStoreItem {
+  data: {
+    attributes: any
+  }
+  // Calculated valuation based on selected comparable sales
+  calculatedValuation?: number
+  // Number of comparables used for the valuation calculation
+  valuationBasedOnComparables?: number
+  // Timestamp of when the valuation was last calculated
+  lastValuationUpdate?: number
+  // Calculated rental value based on rental comparables
+  calculatedRent?: number
+  // Number of rental comparables used for rent calculation
+  rentBasedOnComparables?: number
+  // Timestamp of when the rent was last calculated
+  lastRentUpdate?: number
+  // Calculated yield percentage (annual return)
+  calculatedYield?: number
+  // Timestamp of when the yield was last calculated
+  lastYieldUpdate?: number
+  [key: string]: any
+}
+
+export interface PropertyDataStore {
+  [propertyId: string]: PropertyDataStoreItem
+}
+
 export interface CalculatorData {
   purchaseType: 'mortgage' | 'cash' | 'bridging'
   includeFeesInLoan: boolean
@@ -235,5 +264,75 @@ export function getPropertyList(listId: string): PropertyList | null {
 
 export function getAllPropertyLists(): PropertyList[] {
   const lists = loadPropertyLists()
-  return Object.values(lists).sort((a, b) => b.updatedAt - a.updatedAt)
+  return Object.values(lists).sort((a, b) => {
+    // Sort by order if both have it, otherwise fall back to updatedAt
+    if (a.order !== undefined && b.order !== undefined) {
+      return a.order - b.order
+    }
+    // If only one has order, prioritize it
+    if (a.order !== undefined) return -1
+    if (b.order !== undefined) return 1
+    // Fall back to updatedAt (most recent first)
+    return b.updatedAt - a.updatedAt
+  })
+}
+
+// Property data store helpers
+export function loadPropertyDataStore(): PropertyDataStore {
+  return loadFromStorage<PropertyDataStore>('propertyDataStore', {})
+}
+
+export function savePropertyDataStore(store: PropertyDataStore): void {
+  saveToStorage('propertyDataStore', store)
+}
+
+export function getPropertyFromStore(propertyId: string): PropertyDataStoreItem | null {
+  const store = loadPropertyDataStore()
+  return store[propertyId] || null
+}
+
+export function updatePropertyInStore(propertyId: string, updates: Partial<PropertyDataStoreItem>): void {
+  const store = loadPropertyDataStore()
+  if (store[propertyId]) {
+    store[propertyId] = { ...store[propertyId], ...updates }
+    savePropertyDataStore(store)
+  }
+}
+
+// Delete a property from all storage locations
+export function deleteProperty(propertyId: string): void {
+  if (typeof window === 'undefined') return
+  
+  // Remove from propertyDataStore
+  const store = loadPropertyDataStore()
+  delete store[propertyId]
+  savePropertyDataStore(store)
+  
+  // Remove from recentAnalyses
+  try {
+    const savedAnalyses = localStorage.getItem('recentAnalyses')
+    if (savedAnalyses) {
+      const analyses = JSON.parse(savedAnalyses)
+      const filtered = analyses.filter((a: any) => a.id !== propertyId)
+      localStorage.setItem('recentAnalyses', JSON.stringify(filtered))
+    }
+  } catch (e) {
+    console.error('Failed to remove from recentAnalyses:', e)
+  }
+  
+  // Remove from calculator data
+  const allCalculatorData = loadFromStorage<PersistedCalculatorData>(STORAGE_KEYS.CALCULATOR_DATA, {})
+  delete allCalculatorData[propertyId]
+  saveToStorage(STORAGE_KEYS.CALCULATOR_DATA, allCalculatorData)
+  
+  // Remove from all property lists
+  const lists = loadPropertyLists()
+  Object.values(lists).forEach(list => {
+    const index = list.propertyIds.indexOf(propertyId)
+    if (index !== -1) {
+      list.propertyIds.splice(index, 1)
+      list.updatedAt = Date.now()
+    }
+  })
+  savePropertyLists(lists)
 }

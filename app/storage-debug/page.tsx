@@ -175,7 +175,9 @@ export default function StorageDebugPage() {
         <Header 
           showBackButton={true}
           onBackClick={() => router.push('/')}
-          backButtonText="Back to Home"
+          backButtonText="Back"
+          showHomeButton={true}
+          onHomeClick={() => router.push('/')}
         />
 
       <div className="container mx-auto px-4 py-8">

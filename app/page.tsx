@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from './components/Header'
+import Toast from './components/Toast'
 import { saveCalculatorData, type CalculatorData } from '../lib/persistence'
 
 interface RecentAnalysis {
@@ -28,17 +29,67 @@ export default function Home() {
   const [address, setAddress] = useState('')
   const [postcode, setPostcode] = useState('')
   const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const saveToRecentAnalyses = (data: any, searchAddress: string, searchPostcode: string) => {
     const analysisId = generateUID()
     console.log('Creating new analysis with UID:', analysisId)
     
-    // Store full property data ONLY in propertyDataStore (single source of truth)
+    // Auto-select comparables based on criteria and calculate valuation FIRST
+    const autoSelectedComparables: string[] = []
+    let calculatedValuation = 0
+    
+    if (data.data.attributes.nearby_completed_transactions) {
+      const propertyBeds = data.data.attributes.number_of_bedrooms?.value
+      const propertyBaths = data.data.attributes.number_of_bathrooms?.value
+      const propertyType = data.data.attributes.property_type?.value
+      
+      // Filter comparables: sold within last year, same beds/baths/type
+      const oneYearAgo = new Date()
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+      
+      const matchingTransactions = data.data.attributes.nearby_completed_transactions.filter((transaction: any) => {
+        // Must have been sold within the last year
+        const transactionDate = new Date(transaction.transaction_date)
+        if (transactionDate < oneYearAgo) return false
+        
+        // Must have same number of bedrooms
+        if (propertyBeds && transaction.number_of_bedrooms !== propertyBeds) return false
+        
+        // Must have same number of bathrooms
+        if (propertyBaths && transaction.number_of_bathrooms !== propertyBaths) return false
+        
+        // Must be same property type
+        if (propertyType && transaction.property_type !== propertyType) return false
+        
+        return true
+      })
+      
+      // Get property IDs of matching transactions
+      autoSelectedComparables.push(...matchingTransactions.map((t: any) => t.street_group_property_id))
+      console.log('Auto-selected', autoSelectedComparables.length, 'comparables based on criteria')
+      
+      // Calculate average valuation from matching transactions
+      if (matchingTransactions.length > 0) {
+        const totalPrice = matchingTransactions.reduce((sum: number, t: any) => sum + (t.price || 0), 0)
+        calculatedValuation = Math.round(totalPrice / matchingTransactions.length)
+        console.log('Calculated valuation:', calculatedValuation, 'from', matchingTransactions.length, 'comparables')
+      }
+    }
+    
+    // Store full property data with calculated valuation in propertyDataStore (single source of truth)
+    const propertyDataWithCalculation = {
+      ...data,
+      calculatedValuation,
+      valuationBasedOnComparables: autoSelectedComparables.length,
+      lastValuationUpdate: Date.now()
+    }
+    
     try {
       const propertyDataStore = JSON.parse(localStorage.getItem('propertyDataStore') || '{}')
-      propertyDataStore[analysisId] = data
+      propertyDataStore[analysisId] = propertyDataWithCalculation
       localStorage.setItem('propertyDataStore', JSON.stringify(propertyDataStore))
-      console.log('Saved full property data to propertyDataStore')
+      console.log('Saved full property data with calculated valuation to propertyDataStore')
     } catch (e) {
       console.error('Failed to save full property data:', e)
       // If storage is full, remove oldest entries
@@ -55,9 +106,9 @@ export default function Home() {
               cleanedStore[id] = propertyDataStore[id]
             }
           })
-          cleanedStore[analysisId] = data
+          cleanedStore[analysisId] = propertyDataWithCalculation
           localStorage.setItem('propertyDataStore', JSON.stringify(cleanedStore))
-          console.log('Cleaned old property data and saved new')
+          console.log('Cleaned old property data and saved new with calculated valuation')
         }
       } catch (e2) {
         console.error('Still failed after cleaning:', e2)
@@ -65,7 +116,6 @@ export default function Home() {
     }
     
     // Create default calculator data with pre-filled values
-    const estimatedValue = data.data.attributes.estimated_values?.[0]?.estimated_market_value_rounded || 0
     const defaultCalculatorData: CalculatorData = {
       purchaseType: 'mortgage',
       includeFeesInLoan: false,
@@ -100,7 +150,7 @@ export default function Home() {
         findersFee: ''
       },
       purchaseFinance: {
-        purchasePrice: estimatedValue > 0 ? estimatedValue.toString() : '',
+        purchasePrice: calculatedValuation > 0 ? calculatedValuation.toString() : '',
         deposit: '',
         ltv: '75',
         loanAmount: '',
@@ -127,13 +177,13 @@ export default function Home() {
     
     // Save default calculator data immediately
     saveCalculatorData(analysisId, defaultCalculatorData)
-    console.log('Saved default calculator data with pre-filled values')
+    console.log('Saved default calculator data with pre-filled purchase price:', calculatedValuation || 'No valuation calculated')
     
     // Store only user-generated data and metadata in recentAnalyses
     const analysis: RecentAnalysis = {
       id: analysisId,
       searchDate: new Date().toISOString(),
-      comparables: [],
+      comparables: autoSelectedComparables,
       filters: {
         propertyType: '',
         minBeds: '',
@@ -178,6 +228,8 @@ export default function Home() {
     }
 
     setLoading(true)
+    setErrorMessage(null)
+    
     try {
       const response = await fetch('/api/property', {
         method: 'POST',
@@ -187,7 +239,19 @@ export default function Home() {
         body: JSON.stringify({ address, postcode }),
       })
       
+      if (!response.ok) {
+        const errorData = await response.json()
+        setErrorMessage(errorData.error || 'Failed to find property. Please check the address and postcode and try again.')
+        return
+      }
+      
       const data = await response.json()
+      
+      // Check if data is valid
+      if (!data || !data.data || !data.data.attributes) {
+        setErrorMessage('Property not found. Please check the address and postcode and try again.')
+        return
+      }
       
       // Save to recent analyses and get the analysis ID
       const analysisId = saveToRecentAnalyses(data, address, postcode)
@@ -197,6 +261,7 @@ export default function Home() {
       router.push(`/details/${analysisId}`)
     } catch (error) {
       console.error('Error fetching property data:', error)
+      setErrorMessage('An error occurred while searching for the property. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -204,6 +269,15 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-900">
+      {/* Error Toast */}
+      {errorMessage && (
+        <Toast
+          message={errorMessage}
+          type="error"
+          onClose={() => setErrorMessage(null)}
+        />
+      )}
+      
       <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
@@ -254,7 +328,7 @@ export default function Home() {
 
               {/* Action Menu Grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 animate-enter-subtle-delayed">
-                {/* Recent Searches */}
+                {/* All Properties */}
                 <button
                   type="button"
                   onClick={() => router.push('/recent')}
@@ -263,12 +337,12 @@ export default function Home() {
                   <div className="flex flex-col items-center text-center gap-3">
                     <div className="w-12 h-12 rounded-full bg-blue-600 group-hover:bg-blue-500 flex items-center justify-center transition-colors">
                       <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-white font-semibold">Recent Searches</h3>
-                      <p className="text-gray-400 text-sm mt-1">View search history</p>
+                      <h3 className="text-white font-semibold">All Properties</h3>
+                      <p className="text-gray-400 text-sm mt-1">View saved properties</p>
                     </div>
                   </div>
                 </button>

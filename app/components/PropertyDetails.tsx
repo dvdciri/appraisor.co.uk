@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { 
   getAllPropertyLists, 
   createPropertyList, 
   addPropertyToList,
   removePropertyFromList,
-  PropertyList 
+  PropertyList,
+  updatePropertyInStore,
+  getPropertyFromStore
 } from '../../lib/persistence'
 import Toast from './Toast'
 
@@ -342,8 +344,7 @@ export default function PropertyDetails({
   const { attributes } = data.data
   const address = `${attributes.address.street_group_format.address_lines}, ${attributes.address.street_group_format.postcode}`
   
-  // Get estimated values from data
-  const estimatedValue = attributes.estimated_values?.[0]?.estimated_market_value_rounded || 0
+  // Get estimated rental values from data
   const estimatedRent = attributes.estimated_rental_value?.estimated_monthly_rental_value || 0
   const estimatedYield = attributes.estimated_rental_value?.estimated_annual_rental_yield || 0
 
@@ -381,9 +382,54 @@ export default function PropertyDetails({
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const [listMessage, setListMessage] = useState<{type: 'success' | 'info' | 'error', text: string} | null>(null)
 
+  // Comparables modal state
+  const [isComparablesModalOpen, setIsComparablesModalOpen] = useState(false)
+
   // Tabs state
-  const tabs = ['📋 Property Details', '⚡ EPC', '⚠️ Risk assesment', '🏘️ Sold Nearby', '🏠 Listed Nearby', '📈 Market', '🚌 Transport & Education']
-  const [selectedTab, setSelectedTab] = useState<string>('📋 Property Details')
+  const tabs = ['📋 Basic Details', '🗺️ Plot', '📜 Transaction History', '⚡ EPC', '⚠️ Risk assesment', '🏠 Listed Nearby', '📈 Market', '🚌 Transport & Education']
+  const [selectedTab, setSelectedTab] = useState<string>('📋 Basic Details')
+  const [nearbyListingsSubTab, setNearbyListingsSubTab] = useState<'sale' | 'rent'>('sale')
+
+  // Valuation state
+  const [calculatedValuation, setCalculatedValuation] = useState<number | null>(null)
+  const [calculatedRent, setCalculatedRent] = useState<number | null>(null)
+  const [calculatedYield, setCalculatedYield] = useState<number | null>(null)
+
+  // Calculate matching rental listings count
+  const matchingRentalListingsCount = useMemo(() => {
+    if (!attributes.nearby_listings?.rental_listings) return 0
+    
+    const rentalListings = attributes.nearby_listings.rental_listings
+    const propertyBeds = attributes.number_of_bedrooms?.value
+    
+    // Try strict filter first (type + beds + baths)
+    const strictMatches = rentalListings.filter((listing: any) => {
+      return listing.property_type?.value === attributes.property_type?.value &&
+             listing.number_of_bedrooms === propertyBeds &&
+             listing.number_of_bathrooms === attributes.number_of_bathrooms?.value
+    })
+    
+    // If less than 5 matches, use relaxed filter (type + beds only)
+    if (strictMatches.length < 5) {
+      const relaxedMatches = rentalListings.filter((listing: any) => {
+        return listing.property_type?.value === attributes.property_type?.value &&
+               listing.number_of_bedrooms === propertyBeds
+      })
+      
+      // If still less than 5, include ±1 bedroom
+      if (relaxedMatches.length < 5) {
+        return rentalListings.filter((listing: any) => {
+          const bedroomDiff = Math.abs(listing.number_of_bedrooms - propertyBeds)
+          return listing.property_type?.value === attributes.property_type?.value &&
+                 bedroomDiff <= 1
+        }).length
+      }
+      
+      return relaxedMatches.length
+    }
+    
+    return strictMatches.length
+  }, [attributes.nearby_listings?.rental_listings, attributes.property_type?.value, attributes.number_of_bedrooms?.value, attributes.number_of_bathrooms?.value])
 
   // Load lists when modal opens
   useEffect(() => {
@@ -392,6 +438,203 @@ export default function PropertyDetails({
       setListMessage(null)
     }
   }, [isListModalOpen])
+
+  // Set default nearby listings sub-tab based on available data
+  useEffect(() => {
+    if (selectedTab === '🏠 Listed Nearby' && attributes.nearby_listings) {
+      const hasSaleListings = attributes.nearby_listings.sale_listings && attributes.nearby_listings.sale_listings.length > 0
+      const hasRentalListings = attributes.nearby_listings.rental_listings && attributes.nearby_listings.rental_listings.length > 0
+      
+      // If current sub-tab data doesn't exist, switch to the one that does
+      if (nearbyListingsSubTab === 'sale' && !hasSaleListings && hasRentalListings) {
+        setNearbyListingsSubTab('rent')
+      } else if (nearbyListingsSubTab === 'rent' && !hasRentalListings && hasSaleListings) {
+        setNearbyListingsSubTab('sale')
+      }
+    }
+  }, [selectedTab, attributes.nearby_listings, nearbyListingsSubTab])
+
+  // Calculate valuation based on selected comparables
+  useEffect(() => {
+    if (!propertyId || !attributes.nearby_completed_transactions) return
+
+    // Calculate average price from selected comparables
+    if (comparables.size > 0) {
+      const selectedTransactions = attributes.nearby_completed_transactions.filter(
+        (transaction: any) => comparables.has(transaction.street_group_property_id)
+      )
+      
+      if (selectedTransactions.length > 0) {
+        const totalPrice = selectedTransactions.reduce((sum: number, transaction: any) => sum + (transaction.price || 0), 0)
+        const averagePrice = Math.round(totalPrice / selectedTransactions.length)
+        setCalculatedValuation(averagePrice)
+
+        // Persist valuation to propertyDataStore using helper function
+        try {
+          updatePropertyInStore(propertyId, {
+            calculatedValuation: averagePrice,
+            valuationBasedOnComparables: selectedTransactions.length,
+            lastValuationUpdate: Date.now()
+          })
+          console.log('Saved valuation:', averagePrice, 'based on', selectedTransactions.length, 'comparables')
+        } catch (e) {
+          console.error('Failed to save valuation:', e)
+        }
+      } else {
+        setCalculatedValuation(null)
+      }
+    } else {
+      setCalculatedValuation(null)
+      
+      // Clear valuation from storage when no comparables selected
+      try {
+        updatePropertyInStore(propertyId, {
+          calculatedValuation: undefined,
+          valuationBasedOnComparables: undefined,
+          lastValuationUpdate: undefined
+        })
+      } catch (e) {
+        console.error('Failed to clear valuation:', e)
+      }
+    }
+  }, [comparables, attributes.nearby_completed_transactions, propertyId])
+
+  // Calculate estimated rent based on nearby rental listings
+  useEffect(() => {
+    if (!propertyId || !attributes.nearby_listings?.rental_listings) {
+      setCalculatedRent(null)
+      return
+    }
+
+    const rentalListings = attributes.nearby_listings.rental_listings
+    const propertyBeds = attributes.number_of_bedrooms?.value
+    
+    // Try strict filter first (type + beds + baths)
+    let matchingListings = rentalListings.filter((listing: any) => {
+      const samePropertyType = listing.property_type?.value === attributes.property_type?.value
+      const sameBeds = listing.number_of_bedrooms === propertyBeds
+      const sameBaths = listing.number_of_bathrooms === attributes.number_of_bathrooms?.value
+      
+      return samePropertyType && sameBeds && sameBaths
+    })
+    
+    let filterUsed = 'strict (type + beds + baths)'
+    
+    // If less than 5 matches, use relaxed filter (type + beds only)
+    if (matchingListings.length < 5) {
+      matchingListings = rentalListings.filter((listing: any) => {
+        const samePropertyType = listing.property_type?.value === attributes.property_type?.value
+        const sameBeds = listing.number_of_bedrooms === propertyBeds
+        
+        return samePropertyType && sameBeds
+      })
+      filterUsed = 'relaxed (type + beds)'
+      
+      // If still less than 5, include ±1 bedroom
+      if (matchingListings.length < 5) {
+        matchingListings = rentalListings.filter((listing: any) => {
+          const samePropertyType = listing.property_type?.value === attributes.property_type?.value
+          const bedroomDiff = Math.abs(listing.number_of_bedrooms - propertyBeds)
+          
+          return samePropertyType && bedroomDiff <= 1
+        })
+        filterUsed = 'very relaxed (type + beds ±1)'
+      }
+    }
+    
+    console.log(`Using ${filterUsed} filter for rent calculation:`, matchingListings.length, 'listings')
+
+    if (matchingListings.length > 0) {
+      // Calculate average rent
+      const totalRent = matchingListings.reduce((sum: number, listing: any) => sum + (listing.price || 0), 0)
+      const averageRent = Math.round(totalRent / matchingListings.length)
+      setCalculatedRent(averageRent)
+
+      // Persist rent to propertyDataStore
+      try {
+        updatePropertyInStore(propertyId, {
+          calculatedRent: averageRent,
+          rentBasedOnComparables: matchingListings.length,
+          lastRentUpdate: Date.now()
+        })
+        console.log('Saved estimated rent:', averageRent, 'based on', matchingListings.length, 'rental listings')
+      } catch (e) {
+        console.error('Failed to save rent:', e)
+      }
+    } else {
+      setCalculatedRent(null)
+      
+      // Clear rent from storage when no matching listings
+      try {
+        updatePropertyInStore(propertyId, {
+          calculatedRent: undefined,
+          rentBasedOnComparables: undefined,
+          lastRentUpdate: undefined
+        })
+      } catch (e) {
+        console.error('Failed to clear rent:', e)
+      }
+    }
+  }, [attributes.nearby_listings?.rental_listings, attributes.property_type?.value, attributes.number_of_bedrooms?.value, attributes.number_of_bathrooms?.value, propertyId])
+
+  // Calculate yield based on rent and valuation
+  useEffect(() => {
+    if (calculatedRent && calculatedValuation && calculatedValuation > 0) {
+      const annualRent = calculatedRent * 12
+      const yieldPercentage = (annualRent / calculatedValuation) * 100
+      setCalculatedYield(yieldPercentage)
+
+      // Persist yield to propertyDataStore
+      if (propertyId) {
+        try {
+          updatePropertyInStore(propertyId, {
+            calculatedYield: yieldPercentage,
+            lastYieldUpdate: Date.now()
+          })
+          console.log('Saved estimated yield:', yieldPercentage.toFixed(2) + '%')
+        } catch (e) {
+          console.error('Failed to save yield:', e)
+        }
+      }
+    } else {
+      setCalculatedYield(null)
+      
+      // Clear yield from storage when rent or valuation is missing
+      if (propertyId) {
+        try {
+          updatePropertyInStore(propertyId, {
+            calculatedYield: undefined,
+            lastYieldUpdate: undefined
+          })
+        } catch (e) {
+          console.error('Failed to clear yield:', e)
+        }
+      }
+    }
+  }, [calculatedRent, calculatedValuation, propertyId])
+
+  // Load persisted valuation and rent on component mount
+  useEffect(() => {
+    if (!propertyId) return
+
+    try {
+      const propertyData = getPropertyFromStore(propertyId)
+      if (propertyData?.calculatedValuation) {
+        setCalculatedValuation(propertyData.calculatedValuation)
+        console.log('Loaded persisted valuation:', propertyData.calculatedValuation)
+      }
+      if (propertyData?.calculatedRent) {
+        setCalculatedRent(propertyData.calculatedRent)
+        console.log('Loaded persisted rent:', propertyData.calculatedRent)
+      }
+      if (propertyData?.calculatedYield) {
+        setCalculatedYield(propertyData.calculatedYield)
+        console.log('Loaded persisted yield:', propertyData.calculatedYield.toFixed(2) + '%')
+      }
+    } catch (e) {
+      console.error('Failed to load persisted data:', e)
+    }
+  }, [propertyId])
 
   // Check if property is in a list
   const isPropertyInList = (list: PropertyList): boolean => {
@@ -610,11 +853,10 @@ export default function PropertyDetails({
               const url = ref ? `/analyse/${propertyId || 'default'}?ref=${ref}` : `/analyse/${propertyId || 'default'}`
               router.push(url)
             }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium border border-blue-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-medium border border-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <path d="M9 9h6v6H9z"/>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             <span className="hidden sm:inline">Analyse Investment</span>
             <span className="sm:hidden">Analyse</span>
@@ -635,14 +877,15 @@ export default function PropertyDetails({
 
       {/* Overview - Main Property Info */}
       <div className="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg p-6 animate-enter-subtle">
-        <h2 className="text-2xl font-bold text-white mb-6">🏠 Property Overview</h2>
+        <h2 className="text-2xl font-bold text-white mb-6">🏠 Overview</h2>
         {/* Address full-width row */}
         <div className="bg-black/30 rounded-md p-4 mb-4">
           <h3 className="text-xs font-medium text-gray-300 mb-1">Address</h3>
           <p className="text-lg sm:text-xl font-semibold text-white break-words">{address}</p>
         </div>
-        {/* Compact grid for the rest */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        
+        {/* Property Details Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
           {/* Type */}
           <div className="bg-black/30 rounded-md p-3">
             <h3 className="text-xs font-medium text-gray-300 mb-1">Type</h3>
@@ -679,63 +922,83 @@ export default function PropertyDetails({
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Financials */}
-      <div className="bg-gradient-to-r from-green-900 to-blue-900 rounded-lg p-8 animate-enter-subtle-delayed">
-        <h2 className="text-2xl font-bold text-white mb-6">💰 Financials</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-black bg-opacity-30 rounded-lg p-6">
-            <h3 className="text-sm font-medium text-gray-300 mb-2">Estimated Value</h3>
-            <p className="text-xl sm:text-2xl font-bold text-green-400 leading-tight truncate" title={`£${estimatedValue.toLocaleString()}`}>
-              £{estimatedValue.toLocaleString()}
-            </p>
+        {/* Valuations Section - designed for multiple valuations */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+          {/* Calculated Valuation - Always show */}
+          <div className="bg-black/30 rounded-md p-4 border-l-4 border-green-500">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-xs font-medium text-gray-300">Estimated Valuation</h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsComparablesModalOpen(true)}
+                    className="text-xs text-gray-400 hover:text-white underline decoration-dotted underline-offset-2 transition-colors focus:outline-none"
+                  >
+                    Manage comparables
+                  </button>
+                </div>
+                <p className={`text-2xl font-bold ${calculatedValuation ? 'text-white' : 'text-gray-500'}`}>
+                  £{calculatedValuation ? calculatedValuation.toLocaleString('en-GB') : '0'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {calculatedValuation ? (
+                    <>Based on {comparables.size} comparable{comparables.size !== 1 ? 's' : ''}</>
+                  ) : (
+                    <>Select comparables to calculate</>
+                  )}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="bg-black bg-opacity-30 rounded-lg p-6">
-            <h3 className="text-sm font-medium text-gray-300 mb-2">Estimated Rent</h3>
-            <p className="text-xl sm:text-2xl font-bold text-blue-400 leading-tight truncate" title={`£${estimatedRent}/month`}>
-              £{estimatedRent}/month
-            </p>
+
+          {/* Calculated Rent */}
+          <div className="bg-black/30 rounded-md p-4 border-l-4 border-orange-500">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h3 className="text-xs font-medium text-gray-300 mb-1">Estimated Rent</h3>
+                <p className={`text-2xl font-bold ${calculatedRent ? 'text-white' : 'text-gray-500'}`}>
+                  £{calculatedRent ? calculatedRent.toLocaleString('en-GB') : '0'}
+                  {calculatedRent && <span className="text-sm text-gray-300">/pcm</span>}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {calculatedRent ? (
+                    <>Based on {matchingRentalListingsCount} rental listing{matchingRentalListingsCount !== 1 ? 's' : ''}</>
+                  ) : (
+                    <>No matching rental listings</>
+                  )}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="bg-black bg-opacity-30 rounded-lg p-6">
-            <h3 className="text-sm font-medium text-gray-300 mb-2">Estimated Yield</h3>
-            <p className="text-xl sm:text-2xl font-bold text-purple-400 leading-tight truncate" title={`${(estimatedYield * 100).toFixed(1)}%`}>
-              {(estimatedYield * 100).toFixed(1)}%
-            </p>
+
+          {/* Calculated Yield */}
+          <div className="bg-black/30 rounded-md p-4 border-l-4 border-teal-500">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h3 className="text-xs font-medium text-gray-300 mb-1">Estimated Yield</h3>
+                <p className={`text-2xl font-bold ${calculatedYield ? 'text-white' : 'text-gray-500'}`}>
+                  {calculatedYield ? calculatedYield.toFixed(2) : '0.00'}%
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {calculatedYield ? (
+                    <>Gross annual yield</>
+                  ) : (
+                    <>Calculate rent & valuation first</>
+                  )}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
         
-      </div>
-
-      {/* Tabs */}
-      <div className="bg-gray-900 rounded-lg p-2 sticky top-2 z-10 animate-enter-subtle-delayed-2">
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setSelectedTab(tab)}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                selectedTab === tab
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {selectedTab === '📋 Property Details' && (
-      <div className="bg-gray-800 rounded-lg p-8 animate-enter-subtle-delayed-3">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-white">📋 Property Details</h2>
-        </div>
+        {/* Maps Section */}
         {(streetViewImageUrl || mapEmbedUrl) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
             {/* Left: Interactive Google Map with pin */}
             {mapEmbedUrl && (
-              <div className="relative w-full h-64 sm:h-72 md:h-80 lg:h-96 rounded-lg overflow-hidden border border-gray-700">
+              <div className="relative w-full h-40 sm:h-48 md:h-56 lg:h-64 rounded-lg overflow-hidden border border-purple-500/30">
                 <iframe
                   title="Property Location Map"
                   className="w-full h-full"
@@ -769,7 +1032,7 @@ export default function PropertyDetails({
                     <img
                       src={streetViewImageUrl}
                       alt="Google Street View"
-                      className="w-full h-64 sm:h-72 md:h-80 lg:h-96 object-cover rounded-lg border border-gray-700"
+                      className="w-full h-40 sm:h-48 md:h-56 lg:h-64 object-cover rounded-lg border border-purple-500/30"
                       onError={(e) => { e.currentTarget.style.display = 'none' }}
                     />
                     <div className="absolute top-2 right-2">
@@ -778,128 +1041,86 @@ export default function PropertyDetails({
                     <div className="absolute inset-0 rounded-lg bg-black/0 group-hover:bg-black/10 transition-colors" />
                   </div>
                 </a>
-                <p className="mt-2 text-xs text-gray-500">Image © Google</p>
+                <p className="mt-2 text-xs text-gray-400">Image © Google</p>
               </div>
             )}
           </div>
         )}
+      </div>
 
-        
-        <div>
-          <h3 className="text-lg font-semibold text-gray-300 mb-4">Basic Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div className="bg-black/30 rounded-md p-3 md:col-span-5">
-              <div className="text-xs font-medium text-gray-300 mb-1">Address</div>
-              <div className="text-white break-words">{address}</div>
-            </div>
+      {/* Tabs */}
+      <div className="bg-gray-900 rounded-lg p-2 sticky top-2 z-10 animate-enter-subtle-delayed-2">
+        <div className="flex flex-wrap gap-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setSelectedTab(tab)}
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                selectedTab === tab
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      </div>
 
-            <div className="bg-black/30 rounded-md p-3">
-              <div className="text-xs font-medium text-gray-300 mb-1">Tenure</div>
-              <div className="text-white capitalize">{attributes.tenure?.tenure_type || 'N/A'}</div>
-            </div>
-
-            <div className="bg-black/30 rounded-md p-3">
-              <div className="text-xs font-medium text-gray-300 mb-1">Property Type</div>
-              <div className="text-white">{attributes.property_type?.value || 'N/A'}</div>
-            </div>
-
-            <div className="bg-black/30 rounded-md p-3">
-              <div className="text-xs font-medium text-gray-300 mb-1">Bedrooms</div>
-              <div className="text-white">{attributes.number_of_bedrooms?.value || 'N/A'}</div>
-            </div>
-
-            <div className="bg-black/30 rounded-md p-3">
-              <div className="text-xs font-medium text-gray-300 mb-1">Bathrooms</div>
-              <div className="text-white">{attributes.number_of_bathrooms?.value || 'N/A'}</div>
-            </div>
-
-            <div className="bg-black/30 rounded-md p-3">
-              <div className="text-xs font-medium text-gray-300 mb-1">Size</div>
-              <div className="text-white">{attributes.internal_area_square_metres || 'N/A'} m²</div>
-            </div>
-          </div>
+      {selectedTab === '📋 Basic Details' && (
+      <div className="bg-gray-800 rounded-lg p-8 animate-enter-subtle-delayed-3">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-white">📋 Basic Details</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-300 mb-4">Outdoor Space</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Area:</span>
-                <span className="text-white">{attributes.outdoor_space?.outdoor_space_area_square_metres || 'N/A'} m²</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Garden Direction:</span>
-                <span className="text-white">{attributes.outdoor_space?.garden_direction || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Primary Orientation:</span>
-                <span className="text-white">{attributes.outdoor_space?.garden_primary_orientation || 'N/A'}</span>
-              </div>
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <h3 className="text-lg font-semibold text-gray-300 mb-4">Ownership</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Company Owned:</span>
-                <span className="text-white">{attributes.ownership?.company_owned ? 'Yes' : 'No'}</span>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="bg-black/30 rounded-md p-3">
+                <div className="text-xs font-medium text-gray-300 mb-1">Company Owned</div>
+                <div className="text-white">{attributes.ownership?.company_owned ? 'Yes' : 'No'}</div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Overseas Owned:</span>
-                <span className="text-white">{attributes.ownership?.overseas_owned ? 'Yes' : 'No'}</span>
+              <div className="bg-black/30 rounded-md p-3">
+                <div className="text-xs font-medium text-gray-300 mb-1">Overseas Owned</div>
+                <div className="text-white">{attributes.ownership?.overseas_owned ? 'Yes' : 'No'}</div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Social Housing:</span>
-                <span className="text-white">{attributes.ownership?.social_housing ? 'Yes' : 'No'}</span>
+              <div className="bg-black/30 rounded-md p-3">
+                <div className="text-xs font-medium text-gray-300 mb-1">Social Housing</div>
+                <div className="text-white">{attributes.ownership?.social_housing ? 'Yes' : 'No'}</div>
               </div>
             </div>
           </div>
 
           <div>
             <h3 className="text-lg font-semibold text-gray-300 mb-4">Council Tax</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Council Tax Band:</span>
-                <span className="text-white">{attributes.council_tax?.band || 'N/A'}</span>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="bg-black/30 rounded-md p-3">
+                <div className="text-xs font-medium text-gray-300 mb-1">Council Tax Band</div>
+                <div className="text-white">{attributes.council_tax?.band || 'N/A'}</div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Annual Charge:</span>
-                <span className="text-white">£{attributes.council_tax?.current_annual_charge?.toLocaleString() || 'N/A'}</span>
+              <div className="bg-black/30 rounded-md p-3">
+                <div className="text-xs font-medium text-gray-300 mb-1">Annual Charge</div>
+                <div className="text-white">£{attributes.council_tax?.current_annual_charge?.toLocaleString() || 'N/A'}</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Transaction History */}
-        <div className="mt-8">
-          <h3 className="text-lg font-semibold text-gray-300 mb-4">Transaction History</h3>
-          {attributes.transactions && attributes.transactions.length > 0 ? (
-            <div className="space-y-3">
-              {attributes.transactions.map((transaction, index) => (
-                <div key={index} className="bg-gray-700 rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-white font-semibold">£{transaction.price?.toLocaleString()}</p>
-                      <p className="text-sm text-gray-400">Date: {transaction.date}</p>
-                    </div>
-                    <span className="text-xs text-gray-500">ID: {transaction.transaction_id}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-400">No transaction history available</p>
-          )}
-        </div>
+        
+      </div>
+      )}
 
-        {/* Plot Visualization */}
-        {attributes.plot?.polygons && attributes.plot.polygons.length > 0 && (
-          <div className="mt-8">
-            <h3 className="text-lg font-semibold text-gray-300 mb-4">Plot Visualization</h3>
+      {selectedTab === '🗺️ Plot' && (
+      <div className="bg-gray-800 rounded-lg p-8 animate-enter-subtle-delayed-3">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-white">🗺️ Plot</h2>
+        </div>
+        
+        {attributes.plot?.polygons && attributes.plot.polygons.length > 0 ? (
+          <div>
             <div className="bg-gray-700 rounded-lg p-6">
-              <div className="relative w-full h-64 bg-gray-800 rounded-lg overflow-hidden">
+              <div className="relative w-full h-96 bg-gray-800 rounded-lg overflow-hidden">
                 <svg
                   viewBox="0 0 400 200"
                   className="w-full h-full"
@@ -973,7 +1194,7 @@ export default function PropertyDetails({
                   {/* Legend */}
                   <g transform="translate(10, 10)">
                     <rect x="0" y="0" width="140" height="70" fill="rgba(0,0,0,0.8)" rx="4"/>
-                    <text x="10" y="18" fill="white" fontSize="12" fontWeight="bold">Plot Visualization</text>
+                    <text x="10" y="18" fill="white" fontSize="12" fontWeight="bold">Plot</text>
                     <line x1="10" y1="28" x2="30" y2="28" stroke="rgb(59, 130, 246)" strokeWidth="3"/>
                     <text x="35" y="33" fill="white" fontSize="10">Property boundary</text>
                     <circle cx="20" cy="45" r="4" fill="rgb(239, 68, 68)" stroke="white" strokeWidth="1"/>
@@ -987,10 +1208,71 @@ export default function PropertyDetails({
                 <p>Plot last updated: {new Date(attributes.plot.polygons[0].date_polygon_updated).toLocaleDateString()}</p>
               </div>
             </div>
+            
+            {/* Outdoor Space Information */}
+            <div className="mt-6 bg-gray-700 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Outdoor Space</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Area:</span>
+                  <span className="text-white">{attributes.outdoor_space?.outdoor_space_area_square_metres || 'N/A'} m²</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Garden Direction:</span>
+                  <span className="text-white">{attributes.outdoor_space?.garden_direction || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Primary Orientation:</span>
+                  <span className="text-white">{attributes.outdoor_space?.garden_primary_orientation || 'N/A'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">No Plot Data Available</h3>
+            <p className="text-gray-400">Plot visualization data is not available for this property</p>
           </div>
         )}
+      </div>
+      )}
 
+      {selectedTab === '📜 Transaction History' && (
+      <div className="bg-gray-800 rounded-lg p-8 animate-enter-subtle-delayed-3">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-white">📜 Transaction History</h2>
+        </div>
         
+        {attributes.transactions && attributes.transactions.length > 0 ? (
+          <div className="space-y-4">
+            {attributes.transactions.map((transaction, index) => (
+              <div key={index} className="bg-gray-700 rounded-lg p-6 hover:bg-gray-650 transition-colors">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-2xl font-bold text-white">£{transaction.price?.toLocaleString()}</p>
+                    <p className="text-sm text-gray-400 mt-1">Date: {transaction.date}</p>
+                  </div>
+                  <span className="text-xs text-gray-500 bg-gray-800 px-3 py-1 rounded">ID: {transaction.transaction_id}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">No Transaction History Available</h3>
+            <p className="text-gray-400">Transaction data is not available for this property</p>
+          </div>
+        )}
       </div>
       )}
 
@@ -1280,224 +1562,42 @@ export default function PropertyDetails({
       </div>
       )}
 
-      {selectedTab === '🏘️ Sold Nearby' && (
-      <div className="bg-gray-800 rounded-lg p-8 animate-enter-subtle-delayed-3">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-white">🏘️ Sold Nearby</h2>
-          {comparables.size > 0 && (
-            <div className="text-sm text-gray-300">
-              {comparables.size} comparable{comparables.size !== 1 ? 's' : ''} selected
-            </div>
-          )}
-        </div>
-
-        {/* Filters Section */}
-        {attributes.nearby_completed_transactions && attributes.nearby_completed_transactions.length > 0 && (
-          <div className="bg-gray-700 rounded-lg p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Filters</h3>
-              <button
-                onClick={clearFilters}
-                className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-md transition-colors"
-              >
-                Clear All
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {/* Property Type Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Property Type</label>
-                <select
-                  value={filters.propertyType}
-                  onChange={(e) => updateFilter('propertyType', e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">All Types</option>
-                  {getUniquePropertyTypes(attributes.nearby_completed_transactions).map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Beds Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Beds</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.minBeds}
-                    onChange={(e) => updateFilter('minBeds', e.target.value)}
-                    min={getMinMaxValues(attributes.nearby_completed_transactions).minBeds}
-                    max={getMinMaxValues(attributes.nearby_completed_transactions).maxBeds}
-                    className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.maxBeds}
-                    onChange={(e) => updateFilter('maxBeds', e.target.value)}
-                    min={getMinMaxValues(attributes.nearby_completed_transactions).minBeds}
-                    max={getMinMaxValues(attributes.nearby_completed_transactions).maxBeds}
-                    className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Baths Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Baths</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.minBaths}
-                    onChange={(e) => updateFilter('minBaths', e.target.value)}
-                    min={getMinMaxValues(attributes.nearby_completed_transactions).minBaths}
-                    max={getMinMaxValues(attributes.nearby_completed_transactions).maxBaths}
-                    className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.maxBaths}
-                    onChange={(e) => updateFilter('maxBaths', e.target.value)}
-                    min={getMinMaxValues(attributes.nearby_completed_transactions).minBaths}
-                    max={getMinMaxValues(attributes.nearby_completed_transactions).maxBaths}
-                    className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Results Count */}
-              <div className="lg:col-span-2 flex items-end">
-                <div className="text-sm text-gray-300">
-                  {(() => {
-                    const filtered = filterTransactions(attributes.nearby_completed_transactions)
-                    return `${filtered.length} of ${attributes.nearby_completed_transactions.length} properties`
-                  })()}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div>
-          {attributes.nearby_completed_transactions && attributes.nearby_completed_transactions.length > 0 ? (
-            <div className="space-y-4">
-              {/* Sort transactions: comparables first, then by distance */}
-              {(() => {
-                const filteredTransactions = filterTransactions(attributes.nearby_completed_transactions)
-                const sortedTransactions = [...filteredTransactions].sort((a, b) => {
-                  const aIsComparable = comparables.has(a.street_group_property_id)
-                  const bIsComparable = comparables.has(b.street_group_property_id)
-                  
-                  // Comparables first
-                  if (aIsComparable && !bIsComparable) return -1
-                  if (!aIsComparable && bIsComparable) return 1
-                  
-                  // Then by distance
-                  return (a.distance_in_metres || 0) - (b.distance_in_metres || 0)
-                })
-                
-                if (sortedTransactions.length === 0) {
-                  return (
-                    <div className="text-center py-8">
-                      <p className="text-gray-400 text-lg">No properties match your filters</p>
-                      <button
-                        onClick={clearFilters}
-                        className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                      >
-                        Clear Filters
-                      </button>
-                    </div>
-                  )
-                }
-                
-                return sortedTransactions.map((transaction, index) => {
-                  const isComparable = comparables.has(transaction.street_group_property_id)
-                  
-                  return (
-                    <div 
-                      key={transaction.street_group_property_id || index} 
-                      className={`rounded-lg p-4 transition-all duration-200 ${
-                        isComparable 
-                          ? 'bg-gradient-to-r from-blue-900 to-purple-900 border-2 border-blue-500 shadow-lg' 
-                          : 'bg-gray-700'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <p className="text-white font-semibold text-lg">£{transaction.price?.toLocaleString()}</p>
-                            <span className="inline-flex items-center bg-blue-600 text-white text-xs md:text-sm px-2 py-1 rounded-full font-semibold">
-                              {formatDistance(transaction.distance_in_metres)} away
-                            </span>
-                            {isComparable && (
-                              <span className="inline-flex items-center bg-green-600 text-white text-xs md:text-sm px-2 py-1 rounded-full font-semibold">
-                                📌 Comparable
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-300">{transaction.address?.street_group_format?.address_lines}</p>
-                          <p className="text-xs text-gray-400">{transaction.address?.street_group_format?.postcode}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-400">{new Date(transaction.transaction_date).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-400">Type:</span>
-                          <p className="text-white">{transaction.property_type}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Beds:</span>
-                          <p className="text-white">{transaction.number_of_bedrooms}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Baths:</span>
-                          <p className="text-white">{transaction.number_of_bathrooms}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Size:</span>
-                          <p className="text-white">{transaction.internal_area_square_metres}m²</p>
-                        </div>
-                      </div>
-                      
-                      {/* Comparable toggle button */}
-                      <div className="mt-4 flex justify-start">
-                        <button
-                          onClick={() => toggleComparable(transaction.street_group_property_id)}
-                          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                            isComparable
-                              ? 'bg-red-600 hover:bg-red-700 text-white'
-                              : 'bg-gray-600 hover:bg-gray-500 text-white'
-                          }`}
-                        >
-                          {isComparable ? 'Remove' : 'Add as Comparable'}
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })
-              })()}
-            </div>
-          ) : (
-            <p className="text-gray-400">No nearby completed transactions available</p>
-          )}
-        </div>
-      </div>
-      )}
 
       {selectedTab === '🏠 Listed Nearby' && attributes.nearby_listings && (attributes.nearby_listings.sale_listings?.length > 0 || attributes.nearby_listings.rental_listings?.length > 0) && (
         <div className="bg-gray-800 rounded-lg p-8 animate-enter-subtle-delayed-3">
           <h2 className="text-2xl font-bold text-white mb-6">🏠 Nearby Listings</h2>
           
-          {/* Price Comparison Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Sub-tabs for Sale/Rent */}
+          <div className="flex gap-2 mb-6">
             {attributes.nearby_listings.sale_listings && attributes.nearby_listings.sale_listings.length > 0 && (
+              <button
+                onClick={() => setNearbyListingsSubTab('sale')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  nearbyListingsSubTab === 'sale'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                For Sale ({attributes.nearby_listings.sale_listings.length})
+              </button>
+            )}
+            {attributes.nearby_listings.rental_listings && attributes.nearby_listings.rental_listings.length > 0 && (
+              <button
+                onClick={() => setNearbyListingsSubTab('rent')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  nearbyListingsSubTab === 'rent'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                For Rent ({attributes.nearby_listings.rental_listings.length})
+              </button>
+            )}
+          </div>
+          
+          {/* Price Comparison Chart - Show only selected type */}
+          <div className="mb-8">
+            {nearbyListingsSubTab === 'sale' && attributes.nearby_listings.sale_listings && attributes.nearby_listings.sale_listings.length > 0 && (
               <div className="bg-gray-700 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-300 mb-4">Sale Prices Comparison</h3>
                 <div className="space-y-2">
@@ -1512,7 +1612,7 @@ export default function PropertyDetails({
                     const minPrice = Math.min(...prices)
                     const maxPrice = Math.max(...prices)
                     const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length
-                    const propertyValue = estimatedValue || avgPrice
+                    const propertyValue = avgPrice
                     
                     return (
                       <div className="space-y-3">
@@ -1553,7 +1653,7 @@ export default function PropertyDetails({
               </div>
             )}
 
-            {attributes.nearby_listings.rental_listings && attributes.nearby_listings.rental_listings.length > 0 && (
+            {nearbyListingsSubTab === 'rent' && attributes.nearby_listings.rental_listings && attributes.nearby_listings.rental_listings.length > 0 && (
               <div className="bg-gray-700 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-300 mb-4">Rental Prices Comparison</h3>
                 <div className="space-y-2">
@@ -1609,10 +1709,10 @@ export default function PropertyDetails({
             )}
           </div>
 
-          <div className="space-y-6">
-            {attributes.nearby_listings.sale_listings && attributes.nearby_listings.sale_listings.length > 0 && (
+          {/* Listings Grid - Show only selected type */}
+          <div>
+            {nearbyListingsSubTab === 'sale' && attributes.nearby_listings.sale_listings && attributes.nearby_listings.sale_listings.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-300 mb-4">For Sale ({attributes.nearby_listings.sale_listings.length} listings)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {attributes.nearby_listings.sale_listings.map((listing, index) => (
                     <div key={index} className="bg-gray-700 rounded-lg overflow-hidden hover:bg-gray-600 transition-colors cursor-pointer">
@@ -1675,9 +1775,8 @@ export default function PropertyDetails({
               </div>
             )}
 
-            {attributes.nearby_listings.rental_listings && attributes.nearby_listings.rental_listings.length > 0 && (
+            {nearbyListingsSubTab === 'rent' && attributes.nearby_listings.rental_listings && attributes.nearby_listings.rental_listings.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-300 mb-4">For Rent ({attributes.nearby_listings.rental_listings.length} listings)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {attributes.nearby_listings.rental_listings.map((listing, index) => (
                     <div key={index} className="bg-gray-700 rounded-lg overflow-hidden hover:bg-gray-600 transition-colors cursor-pointer">
@@ -2074,7 +2173,7 @@ export default function PropertyDetails({
       {/* List Selection Modal */}
       {isListModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto border border-gray-600">
+          <div className="bg-gray-800 rounded-lg max-w-lg w-full max-h-[85vh] overflow-y-auto border border-gray-600">
             {/* Header */}
             <div className="sticky top-0 bg-gray-800 border-b border-gray-600 p-6">
               <div className="flex items-center justify-between">
@@ -2146,32 +2245,32 @@ export default function PropertyDetails({
               {allLists.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-gray-400 uppercase">Existing Lists</h4>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto">
                     {allLists.map((list) => {
                       const isInList = isPropertyInList(list)
                       return (
                         <button
                           key={list.id}
                           onClick={() => handleTogglePropertyInList(list.id)}
-                          className={`w-full text-left px-4 py-3 rounded-lg transition-colors border-2 ${
+                          className={`w-full text-left px-3 py-2 rounded-md transition-colors border ${
                             isInList
                               ? 'bg-green-900 border-green-600 text-white hover:bg-green-800'
                               : 'bg-gray-700 border-gray-600 hover:bg-gray-600 text-white'
                           }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="font-medium">{list.name}</p>
-                              <p className={`text-sm mt-1 ${isInList ? 'text-green-300' : 'text-gray-400'}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{list.name}</p>
+                              <p className={`text-xs ${isInList ? 'text-green-300' : 'text-gray-400'}`}>
                                 {list.propertyIds.length} {list.propertyIds.length === 1 ? 'property' : 'properties'}
                               </p>
                             </div>
                             {isInList ? (
-                              <svg className="w-6 h-6 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                               </svg>
                             ) : (
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                               </svg>
                             )}
@@ -2188,6 +2287,304 @@ export default function PropertyDetails({
                   <p className="text-gray-400 mb-4">No lists yet. Create your first list to get started!</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comparables Modal */}
+      {isComparablesModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-lg max-w-5xl w-full max-h-[85vh] overflow-y-auto border border-gray-600">
+            {/* Header */}
+            <div className="sticky top-0 bg-gray-800 border-b border-gray-600 p-6 z-10">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-2xl font-bold text-white">🏘️ Sold Comparables</h3>
+                <button
+                  onClick={() => setIsComparablesModalOpen(false)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {comparables.size > 0 && (
+                <div className="text-sm text-gray-300">
+                  {comparables.size} comparable{comparables.size !== 1 ? 's' : ''} selected
+                </div>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-sm text-gray-400 mb-6">
+                Selected comparables are used to calculate the property valuation shown in the Overview section. 
+                Add or remove comparables to refine the estimated value based on similar properties sold nearby.
+              </p>
+
+              {/* Filters Section */}
+              {attributes.nearby_completed_transactions && attributes.nearby_completed_transactions.length > 0 && (
+                <div className="bg-gray-700 rounded-lg p-6 mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-white">Filters</h3>
+                    <button
+                      onClick={clearFilters}
+                      className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-md transition-colors"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    {/* Property Type Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Property Type</label>
+                      <select
+                        value={filters.propertyType}
+                        onChange={(e) => updateFilter('propertyType', e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">All Types</option>
+                        {getUniquePropertyTypes(attributes.nearby_completed_transactions).map(type => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Beds Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Beds</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filters.minBeds}
+                          onChange={(e) => updateFilter('minBeds', e.target.value)}
+                          min={getMinMaxValues(attributes.nearby_completed_transactions).minBeds}
+                          max={getMinMaxValues(attributes.nearby_completed_transactions).maxBeds}
+                          className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filters.maxBeds}
+                          onChange={(e) => updateFilter('maxBeds', e.target.value)}
+                          min={getMinMaxValues(attributes.nearby_completed_transactions).minBeds}
+                          max={getMinMaxValues(attributes.nearby_completed_transactions).maxBeds}
+                          className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Baths Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Baths</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filters.minBaths}
+                          onChange={(e) => updateFilter('minBaths', e.target.value)}
+                          min={getMinMaxValues(attributes.nearby_completed_transactions).minBaths}
+                          max={getMinMaxValues(attributes.nearby_completed_transactions).maxBaths}
+                          className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filters.maxBaths}
+                          onChange={(e) => updateFilter('maxBaths', e.target.value)}
+                          min={getMinMaxValues(attributes.nearby_completed_transactions).minBaths}
+                          max={getMinMaxValues(attributes.nearby_completed_transactions).maxBaths}
+                          className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Results Count */}
+                    <div className="lg:col-span-2 flex items-end">
+                      <div className="text-sm text-gray-300">
+                        {(() => {
+                          const filtered = filterTransactions(attributes.nearby_completed_transactions)
+                          return `${filtered.length} of ${attributes.nearby_completed_transactions.length} properties`
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                {attributes.nearby_completed_transactions && attributes.nearby_completed_transactions.length > 0 ? (
+                  <div className="space-y-2">
+                    {/* Sort transactions: comparables first, then by distance */}
+                    {(() => {
+                      const filteredTransactions = filterTransactions(attributes.nearby_completed_transactions)
+                      const sortedTransactions = [...filteredTransactions].sort((a, b) => {
+                        const aIsComparable = comparables.has(a.street_group_property_id)
+                        const bIsComparable = comparables.has(b.street_group_property_id)
+                        
+                        // Comparables first
+                        if (aIsComparable && !bIsComparable) return -1
+                        if (!aIsComparable && bIsComparable) return 1
+                        
+                        // Then by distance
+                        return (a.distance_in_metres || 0) - (b.distance_in_metres || 0)
+                      })
+                      
+                      if (sortedTransactions.length === 0) {
+                        return (
+                          <div className="text-center py-8">
+                            <p className="text-gray-400 text-lg">No properties match your filters</p>
+                            <button
+                              onClick={clearFilters}
+                              className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                            >
+                              Clear Filters
+                            </button>
+                          </div>
+                        )
+                      }
+                      
+                      // Split transactions into selected and others
+                      const selectedComparables = sortedTransactions.filter(t => comparables.has(t.street_group_property_id))
+                      const otherProperties = sortedTransactions.filter(t => !comparables.has(t.street_group_property_id))
+                      
+                      return (
+                        <>
+                          {/* Render selected comparables */}
+                          {selectedComparables.map((transaction, index) => {
+                        const isComparable = comparables.has(transaction.street_group_property_id)
+                        
+                        return (
+                          <div 
+                            key={transaction.street_group_property_id || index} 
+                            className="bg-gray-700 rounded-lg p-3 transition-all duration-200 hover:bg-gray-650"
+                          >
+                            {/* Main content */}
+                            <div className="flex-1 min-w-0">
+                              {/* Top row: Address, badges, date */}
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm text-gray-300 truncate">{transaction.address?.street_group_format?.address_lines}</p>
+                                  <span className="inline-flex items-center bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                                    {formatDistance(transaction.distance_in_metres)} away
+                                  </span>
+                                  <span className={`inline-flex items-center text-white text-xs px-2 py-0.5 rounded-full font-medium ${
+                                    isComparable ? 'bg-green-600' : 'bg-gray-600'
+                                  }`}>
+                                    {isComparable ? '✓ Comparable' : 'Not selected'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-400 whitespace-nowrap">{new Date(transaction.transaction_date).toLocaleDateString()}</p>
+                              </div>
+                              
+                              {/* Price */}
+                              <p className="text-white font-semibold text-base mb-1">£{transaction.price?.toLocaleString()}</p>
+                              
+                              {/* Property details in compact inline format */}
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3 text-xs text-gray-400">
+                                  <span>{transaction.property_type}</span>
+                                  <span>•</span>
+                                  <span>{transaction.number_of_bedrooms} bed</span>
+                                  <span>•</span>
+                                  <span>{transaction.number_of_bathrooms} bath</span>
+                                  <span>•</span>
+                                  <span>{transaction.internal_area_square_metres}m²</span>
+                                </div>
+                                
+                                {/* Action button bottom right */}
+                                <button
+                                  onClick={() => toggleComparable(transaction.street_group_property_id)}
+                                  className={`px-3 py-1 rounded border text-sm font-medium transition-all whitespace-nowrap ${
+                                    isComparable
+                                      ? 'border-red-500 text-red-400 hover:bg-red-500/10'
+                                      : 'border-blue-500 text-blue-400 hover:bg-blue-500/10'
+                                  }`}
+                                >
+                                  {isComparable ? 'Remove' : 'Add'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                      
+                      {/* Heading for other properties */}
+                      {otherProperties.length > 0 && (
+                        <div className="pt-4 pb-2">
+                          <h3 className="text-lg font-semibold text-white">Other properties sold nearby</h3>
+                        </div>
+                      )}
+                      
+                      {/* Render other properties */}
+                      {otherProperties.map((transaction, index) => {
+                        const isComparable = comparables.has(transaction.street_group_property_id)
+                        
+                        return (
+                          <div 
+                            key={transaction.street_group_property_id || index} 
+                            className="bg-gray-700 rounded-lg p-3 transition-all duration-200 hover:bg-gray-650"
+                          >
+                            {/* Main content */}
+                            <div className="flex-1 min-w-0">
+                              {/* Top row: Address, badges, date */}
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm text-gray-300 truncate">{transaction.address?.street_group_format?.address_lines}</p>
+                                  <span className="inline-flex items-center bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                                    {formatDistance(transaction.distance_in_metres)} away
+                                  </span>
+                                  <span className={`inline-flex items-center text-white text-xs px-2 py-0.5 rounded-full font-medium ${
+                                    isComparable ? 'bg-green-600' : 'bg-gray-600'
+                                  }`}>
+                                    {isComparable ? '✓ Comparable' : 'Not selected'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-400 whitespace-nowrap">{new Date(transaction.transaction_date).toLocaleDateString()}</p>
+                              </div>
+                              
+                              {/* Price */}
+                              <p className="text-white font-semibold text-base mb-1">£{transaction.price?.toLocaleString()}</p>
+                              
+                              {/* Property details in compact inline format */}
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3 text-xs text-gray-400">
+                                  <span>{transaction.property_type}</span>
+                                  <span>•</span>
+                                  <span>{transaction.number_of_bedrooms} bed</span>
+                                  <span>•</span>
+                                  <span>{transaction.number_of_bathrooms} bath</span>
+                                  <span>•</span>
+                                  <span>{transaction.internal_area_square_metres}m²</span>
+                                </div>
+                                
+                                {/* Action button bottom right */}
+                                <button
+                                  onClick={() => toggleComparable(transaction.street_group_property_id)}
+                                  className={`px-3 py-1 rounded border text-sm font-medium transition-all whitespace-nowrap ${
+                                    isComparable
+                                      ? 'border-red-500 text-red-400 hover:bg-red-500/10'
+                                      : 'border-blue-500 text-blue-400 hover:bg-blue-500/10'
+                                  }`}
+                                >
+                                  {isComparable ? 'Remove' : 'Add'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                        </>
+                      )
+                    })()}
+                  </div>
+                ) : (
+                  <p className="text-gray-400">No nearby completed transactions available</p>
+                )}
+              </div>
             </div>
           </div>
         </div>

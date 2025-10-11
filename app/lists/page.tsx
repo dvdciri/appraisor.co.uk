@@ -30,9 +30,6 @@ interface PropertyData {
           longitude: number
         }
       }
-      estimated_values?: Array<{
-        estimated_market_value_rounded: number
-      }>
       property_type?: {
         value: string
       }
@@ -403,7 +400,9 @@ export default function ListsPage() {
         <Header 
           showBackButton={true}
           onBackClick={() => router.push('/')}
-          backButtonText="Back to Home"
+          backButtonText="Back"
+          showHomeButton={true}
+          onHomeClick={() => router.push('/')}
         />
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-7xl mx-auto">
@@ -640,7 +639,6 @@ export default function ListsPage() {
                           const propertyType = attributes.property_type?.value || 'Unknown'
                           const bedrooms = attributes.number_of_bedrooms?.value || 0
                           const bathrooms = attributes.number_of_bathrooms?.value || 0
-                          const estimatedValue = attributes.estimated_values?.[0]?.estimated_market_value_rounded || 0
                           const latitude = attributes.location?.coordinates?.latitude || 0
                           const longitude = attributes.location?.coordinates?.longitude || 0
 
@@ -680,7 +678,6 @@ export default function ListsPage() {
                                     <span>{propertyType}</span>
                                     <span>{bedrooms} bed{bedrooms !== 1 ? 's' : ''}</span>
                                     <span>{bathrooms} bath{bathrooms !== 1 ? 's' : ''}</span>
-                                    <span className="text-green-400 font-medium">£{estimatedValue.toLocaleString()}</span>
                                   </div>
                                 </div>
 
@@ -860,7 +857,6 @@ export default function ListsPage() {
                           const propertyType = attributes.property_type?.value || 'Unknown'
                           const bedrooms = attributes.number_of_bedrooms?.value || 0
                           const bathrooms = attributes.number_of_bathrooms?.value || 0
-                          const estimatedValue = attributes.estimated_values?.[0]?.estimated_market_value_rounded || 0
                           const isInList = selectedList.propertyIds.includes(search.id)
                           const isSelected = selectedPropertyIds.has(search.id)
 
@@ -903,7 +899,6 @@ export default function ListsPage() {
                                     <span>{propertyType}</span>
                                     <span>{bedrooms} bed{bedrooms !== 1 ? 's' : ''}</span>
                                     <span>{bathrooms} bath{bathrooms !== 1 ? 's' : ''}</span>
-                                    <span className="text-green-400 font-medium">£{estimatedValue.toLocaleString()}</span>
                                   </div>
                                 </div>
 
