@@ -54,7 +54,7 @@ export default function PropertyDetailsPage() {
     const referrer = searchParams.get('ref')
     
     if (referrer === 'recent') {
-      router.push('/recent')
+      router.push('/')
     } else if (referrer === 'lists') {
       router.push('/lists')
     } else {

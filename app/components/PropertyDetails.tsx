@@ -874,6 +874,17 @@ export default function PropertyDetails({
           <span className="hidden sm:inline">Add to List</span>
           <span className="sm:hidden">Add</span>
         </button>
+        <button
+          type="button"
+          onClick={() => router.push(`/tasks?property=${propertyId}&ref=details&detailsId=${propertyId}`)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-medium border border-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+          <span className="hidden sm:inline">View Tasks</span>
+          <span className="sm:hidden">Tasks</span>
+        </button>
       </div>
 
       {/* Overview - Main Property Info */}
