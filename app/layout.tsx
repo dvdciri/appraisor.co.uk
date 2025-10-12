@@ -1,7 +1,7 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Estimo - UK Property Investment Analysis',
+  title: 'UK Property Investment Analysis',
   description: 'Analyze UK investment properties with detailed insights',
 }
 

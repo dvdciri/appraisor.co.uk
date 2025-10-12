@@ -370,6 +370,7 @@ export default function Home() {
         stampDutyPercent: '',
         ila: '',
         brokerFees: '',
+        auctionFees: '',
         findersFee: ''
       },
       purchaseFinance: {
@@ -586,7 +587,7 @@ export default function Home() {
               {/* Properties List */}
               {recentAnalyses.length > 0 ? (
                 <div className="bg-gray-800 rounded-lg p-6 animate-enter-subtle-delayed-2">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="mb-4">
                     <h2 className="text-xl font-bold text-white">
                       All Properties
                       {propertySearchTerm && filteredAnalyses.length !== recentAnalyses.length && (
@@ -595,12 +596,6 @@ export default function Home() {
                         </span>
                       )}
                     </h2>
-                    <button
-                      onClick={clearRecentAnalyses}
-                      className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md transition-colors"
-                    >
-                      Clear All
-                    </button>
                   </div>
 
                   {/* Filter Input */}

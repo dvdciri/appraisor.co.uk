@@ -12,6 +12,7 @@ import {
   getPropertyFromStore,
   updateUserAnalysis
 } from '../../lib/persistence'
+import { getTasksForProperty } from '../../lib/tasks'
 import Toast from './Toast'
 
 interface PropertyData {
@@ -382,6 +383,9 @@ export default function PropertyDetails({
   const [isCreatingList, setIsCreatingList] = useState(false)
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const [listMessage, setListMessage] = useState<{type: 'success' | 'info' | 'error', text: string} | null>(null)
+  
+  // Task count state
+  const [taskCount, setTaskCount] = useState(0)
 
   // Comparables modal state
   const [isComparablesModalOpen, setIsComparablesModalOpen] = useState(false)
@@ -432,13 +436,40 @@ export default function PropertyDetails({
     return strictMatches.length
   }, [attributes.nearby_listings?.rental_listings, attributes.property_type?.value, attributes.number_of_bedrooms?.value, attributes.number_of_bathrooms?.value])
 
-  // Load lists when modal opens
+  // Load lists on component mount and when modal opens
   useEffect(() => {
+    setAllLists(getAllPropertyLists())
     if (isListModalOpen) {
-      setAllLists(getAllPropertyLists())
       setListMessage(null)
     }
   }, [isListModalOpen])
+  
+  // Calculate how many lists contain this property
+  const listsContainingProperty = useMemo(() => {
+    if (!propertyId) return 0
+    return allLists.filter(list => list.propertyIds.includes(propertyId)).length
+  }, [allLists, propertyId])
+  
+  // Load task count for this property
+  useEffect(() => {
+    if (propertyId) {
+      const tasks = getTasksForProperty(propertyId)
+      setTaskCount(tasks.length)
+    }
+  }, [propertyId])
+  
+  // Update task count when window gains focus (to catch changes from tasks page)
+  useEffect(() => {
+    const updateTaskCount = () => {
+      if (propertyId) {
+        const tasks = getTasksForProperty(propertyId)
+        setTaskCount(tasks.length)
+      }
+    }
+    
+    window.addEventListener('focus', updateTaskCount)
+    return () => window.removeEventListener('focus', updateTaskCount)
+  }, [propertyId])
 
   // Set default nearby listings sub-tab based on available data
   useEffect(() => {
@@ -866,24 +897,48 @@ export default function PropertyDetails({
         <button
           type="button"
           onClick={() => setIsListModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-medium border border-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+            listsContainingProperty > 0 
+              ? 'bg-green-700 hover:bg-green-600 text-white border-green-600' 
+              : 'bg-gray-800 hover:bg-gray-700 text-white border-gray-600'
+          }`}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            {listsContainingProperty > 0 ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            )}
           </svg>
-          <span className="hidden sm:inline">Add to List</span>
-          <span className="sm:hidden">Add</span>
+          <span className="hidden sm:inline">
+            {listsContainingProperty > 0 
+              ? `In ${listsContainingProperty} ${listsContainingProperty === 1 ? 'List' : 'Lists'}` 
+              : 'Add to List'}
+          </span>
+          <span className="sm:hidden">
+            {listsContainingProperty > 0 ? `${listsContainingProperty}` : 'Add'}
+          </span>
         </button>
         <button
           type="button"
           onClick={() => router.push(`/tasks?property=${propertyId}&ref=details&detailsId=${propertyId}`)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-medium border border-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+            taskCount > 0 
+              ? 'bg-blue-700 hover:bg-blue-600 text-white border-blue-600' 
+              : 'bg-gray-800 hover:bg-gray-700 text-white border-gray-600'
+          }`}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
           </svg>
-          <span className="hidden sm:inline">View Tasks</span>
-          <span className="sm:hidden">Tasks</span>
+          <span className="hidden sm:inline">
+            {taskCount > 0 
+              ? `${taskCount} ${taskCount === 1 ? 'Task' : 'Tasks'}` 
+              : 'View Tasks'}
+          </span>
+          <span className="sm:hidden">
+            {taskCount > 0 ? `${taskCount}` : 'Tasks'}
+          </span>
         </button>
       </div>
 

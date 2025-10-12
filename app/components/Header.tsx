@@ -49,8 +49,8 @@ export default function Header({
 
         {/* Center - Logo and Slogan */}
         <div className="flex flex-col items-center text-center flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-white">Estimo</h1>
-          <p className="text-xs text-gray-400 mt-1 hidden sm:block">Analyse UK Property Investments</p>
+          <h1 className="text-xl font-bold text-white"></h1>
+          <p className="text-xs text-gray-400 mt-1 hidden sm:block"></p>
           <p className="text-xs text-gray-400 mt-1 sm:hidden">Property Investment Analysis</p>
         </div>
 
