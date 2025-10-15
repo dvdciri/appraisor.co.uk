@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
 
 async function fetchRealPropertyDetails(address: string, postcode: string): Promise<any> {
-  const response = await fetch('https://api.data.street.co.uk/street-data-api/v2/properties/addresses?tier=core', {
+  const response = await fetch('https://api.data.street.co.uk/street-data-api/v2/properties/addresses?tier=premium', {
       method: 'POST',
       headers: {
           'Content-Type': 'application/json',

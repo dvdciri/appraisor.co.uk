@@ -21,14 +21,20 @@ interface EstimationItem {
   description: string
   quantity: number
   unit: string
-  unit_cost: number
-  total_cost: number
+  unit_cost_basic: number
+  total_cost_basic: number
+  unit_cost_standard: number
+  total_cost_standard: number
+  unit_cost_premium: number
+  total_cost_premium: number
   notes: string
 }
 
 interface EstimationResult {
   items: EstimationItem[]
-  total_cost: number
+  total_cost_basic: number
+  total_cost_standard: number
+  total_cost_premium: number
   summary: string
   error: string
 }
@@ -57,13 +63,15 @@ export default function RefurbishmentEstimatorPage() {
   const [dragActive, setDragActive] = useState(false)
   
   // Fine-tune section state
-  const [refurbishmentLevel, setRefurbishmentLevel] = useState<RefurbishmentLevel>('standard')
-  const [itemsToInclude, setItemsToInclude] = useState<string>('')
-  const [itemsToExclude, setItemsToExclude] = useState<string>('')
+  const [itemsToInclude, setItemsToInclude] = useState<string[]>([])
+  const [itemsToExclude, setItemsToExclude] = useState<string[]>([])
+  const [newIncludeItem, setNewIncludeItem] = useState<string>('')
+  const [newExcludeItem, setNewExcludeItem] = useState<string>('')
   
   // Analysis states
   const [estimationResult, setEstimationResult] = useState<EstimationResult | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [selectedLevel, setSelectedLevel] = useState<RefurbishmentLevel>('standard')
   
   // Confirmation dialog state
   const [showApplyConfirm, setShowApplyConfirm] = useState(false)
@@ -115,7 +123,7 @@ export default function RefurbishmentEstimatorPage() {
   }, [uploadedImages])
 
   const handleBackClick = () => {
-    router.push(`/analyse/${params.id}`)
+    router.back()
   }
 
   const handleDrag = (e: React.DragEvent) => {
@@ -213,15 +221,23 @@ export default function RefurbishmentEstimatorPage() {
       item.description,
       item.quantity.toString(),
       item.unit,
-      item.unit_cost.toString(),
-      item.total_cost.toString(),
+      selectedLevel === 'basic' ? item.unit_cost_basic.toString() :
+        selectedLevel === 'standard' ? item.unit_cost_standard.toString() :
+        item.unit_cost_premium.toString(),
+      selectedLevel === 'basic' ? item.total_cost_basic.toString() :
+        selectedLevel === 'standard' ? item.total_cost_standard.toString() :
+        item.total_cost_premium.toString(),
       item.notes || ''
     ])
 
     // Add summary rows
     rows.push([]) // Empty row
     rows.push(['Summary', estimationResult.summary, '', '', '', '', '', ''])
-    rows.push(['Total Cost', '', '', '', '', '', estimationResult.total_cost.toString(), ''])
+    rows.push(['Quality Level', selectedLevel.charAt(0).toUpperCase() + selectedLevel.slice(1), '', '', '', '', '', ''])
+    rows.push(['Total Cost', '', '', '', '', '', 
+      selectedLevel === 'basic' ? estimationResult.total_cost_basic.toString() :
+      selectedLevel === 'standard' ? estimationResult.total_cost_standard.toString() :
+      estimationResult.total_cost_premium.toString(), ''])
 
     // Combine headers and rows
     const csvContent = [
@@ -287,9 +303,8 @@ export default function RefurbishmentEstimatorPage() {
         },
         body: JSON.stringify({
           images: base64Images,
-          refurbishmentLevel,
-          itemsToInclude: itemsToInclude.trim() || undefined,
-          itemsToExclude: itemsToExclude.trim() || undefined,
+          itemsToInclude: itemsToInclude.length > 0 ? itemsToInclude : undefined,
+          itemsToExclude: itemsToExclude.length > 0 ? itemsToExclude : undefined,
           propertyDetails: {
             numBeds: numBeds || undefined,
             numBaths: numBaths || undefined,
@@ -324,9 +339,10 @@ export default function RefurbishmentEstimatorPage() {
   const handleReset = () => {
     setCurrentStep('details')
     setUploadedImages([])
-    setRefurbishmentLevel('standard')
-    setItemsToInclude('')
-    setItemsToExclude('')
+    setItemsToInclude([])
+    setItemsToExclude([])
+    setNewIncludeItem('')
+    setNewExcludeItem('')
     setEstimationResult(null)
     setErrorMessage(null)
   }
@@ -336,6 +352,42 @@ export default function RefurbishmentEstimatorPage() {
     setShowApplyConfirm(true)
   }
 
+  const addIncludeItem = () => {
+    if (newIncludeItem.trim()) {
+      setItemsToInclude(prev => [...prev, newIncludeItem.trim()])
+      setNewIncludeItem('')
+    }
+  }
+
+  const removeIncludeItem = (index: number) => {
+    setItemsToInclude(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const addExcludeItem = () => {
+    if (newExcludeItem.trim()) {
+      setItemsToExclude(prev => [...prev, newExcludeItem.trim()])
+      setNewExcludeItem('')
+    }
+  }
+
+  const removeExcludeItem = (index: number) => {
+    setItemsToExclude(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleIncludeKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      addIncludeItem()
+    }
+  }
+
+  const handleExcludeKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      addExcludeItem()
+    }
+  }
+
   const confirmApplyToCalculator = () => {
     if (!estimationResult || !params.id) return
 
@@ -343,10 +395,13 @@ export default function RefurbishmentEstimatorPage() {
     const existingData = loadCalculatorData(params.id as string)
     
     // Convert estimation items to calculator refurb items (starting from ID 1)
+    // Use selected level costs
     const newRefurbItems = estimationResult.items.map((item, index) => ({
       id: index + 1,
       description: `${item.item_name}: ${item.description}`,
-      amount: item.total_cost.toString()
+      amount: selectedLevel === 'basic' ? item.total_cost_basic.toString() :
+              selectedLevel === 'standard' ? item.total_cost_standard.toString() :
+              item.total_cost_premium.toString()
     }))
     
     // Replace existing refurb items with new ones
@@ -784,71 +839,103 @@ export default function RefurbishmentEstimatorPage() {
                 
                 {currentStep === 'finetune' && (
                   <div className="p-5 space-y-4">
-                  {/* Refurbishment Standard */}
-                  <div>
-                    <label className="text-sm font-medium text-gray-300 mb-2 block">
-                      1. Refurbishment Standard
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['basic', 'standard', 'premium'] as RefurbishmentLevel[]).map((level) => (
-                        <button
-                          key={level}
-                          onClick={() => setRefurbishmentLevel(level)}
-                          className={`relative px-3 py-2 rounded-lg border-2 transition-all duration-200 ${
-                            refurbishmentLevel === level
-                              ? 'border-blue-500 bg-blue-900/30'
-                              : 'border-gray-600 bg-gray-700/30 hover:border-gray-500'
-                          }`}
-                        >
-                          <div className="text-center">
-                            <div className="text-2xl mb-1">{getLevelIcon(level)}</div>
-                            <h3 className="text-sm font-semibold text-white capitalize">{level}</h3>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
 
                   {/* Items to Include */}
                   <div>
                     <label className="text-sm font-medium text-gray-300 mb-1 block">
-                      2. Items to Include (Optional)
+                      1. Items to include
                     </label>
                     <p className="text-xs text-gray-500 mb-2">
                       Specify work not directly visible in pictures (e.g., rewiring, plumbing)
                     </p>
-                    <input
-                      type="text"
-                      value={itemsToInclude}
-                      onChange={(e) => setItemsToInclude(e.target.value.slice(0, 100))}
-                      placeholder="e.g., Complete rewiring, new boiler"
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
-                      maxLength={100}
-                    />
-                    <p className="text-xs text-gray-500 mt-1 text-right">
-                      {itemsToInclude.length}/100
-                    </p>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={newIncludeItem}
+                        onChange={(e) => setNewIncludeItem(e.target.value)}
+                        onKeyPress={handleIncludeKeyPress}
+                        placeholder="Type item and press Enter or click Add"
+                        className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={addIncludeItem}
+                        disabled={!newIncludeItem.trim()}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add
+                      </button>
+                    </div>
+                    {itemsToInclude.length > 0 && (
+                      <div className="space-y-2">
+                        {itemsToInclude.map((item, index) => (
+                          <div key={index} className="flex items-center justify-between bg-gray-700 rounded-lg px-3 py-2">
+                            <span className="text-white text-sm">{item}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeIncludeItem(index)}
+                              className="text-red-400 hover:text-red-300 transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Items to Exclude */}
                   <div>
                     <label className="text-sm font-medium text-gray-300 mb-1 block">
-                      3. Items to Exclude (Optional)
+                      2. Items to exclude
                     </label>
                     <p className="text-xs text-gray-500 mb-2">
                       Specify work to exclude from estimate, even if visible in pictures
                     </p>
-                    <textarea
-                      value={itemsToExclude}
-                      onChange={(e) => setItemsToExclude(e.target.value.slice(0, 200))}
-                      placeholder="e.g., Skip bathroom renovation, keep existing kitchen"
-                      rows={2}
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors resize-none"
-                      maxLength={200}
-                    />
-                    <p className="text-xs text-gray-500 mt-1 text-right">
-                      {itemsToExclude.length}/200
-                    </p>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={newExcludeItem}
+                        onChange={(e) => setNewExcludeItem(e.target.value)}
+                        onKeyPress={handleExcludeKeyPress}
+                        placeholder="Type item and press Enter or click Add"
+                        className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={addExcludeItem}
+                        disabled={!newExcludeItem.trim()}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add
+                      </button>
+                    </div>
+                    {itemsToExclude.length > 0 && (
+                      <div className="space-y-2">
+                        {itemsToExclude.map((item, index) => (
+                          <div key={index} className="flex items-center justify-between bg-gray-700 rounded-lg px-3 py-2">
+                            <span className="text-white text-sm">{item}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeExcludeItem(index)}
+                              className="text-red-400 hover:text-red-300 transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 )}
@@ -899,9 +986,30 @@ export default function RefurbishmentEstimatorPage() {
                   <p className="text-gray-300 mb-3">{estimationResult.summary}</p>
                 </div>
                 <div className="ml-6 text-right">
-                  <p className="text-sm text-gray-400 mb-1 capitalize">{refurbishmentLevel} Level</p>
+                  {/* Level Selector */}
+                  <div className="mb-4">
+                    <label className="text-sm text-gray-400 mb-2 block">Quality Level</label>
+                    <div className="flex gap-2">
+                      {(['basic', 'standard', 'premium'] as RefurbishmentLevel[]).map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => setSelectedLevel(level)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                            selectedLevel === level
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                          }`}
+                        >
+                          {level.charAt(0).toUpperCase() + level.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-400 mb-1 capitalize">{selectedLevel} Level</p>
                   <p className="text-4xl font-bold text-green-400">
-                    £{estimationResult.total_cost.toLocaleString()}
+                    £{selectedLevel === 'basic' ? estimationResult.total_cost_basic.toLocaleString() :
+                      selectedLevel === 'standard' ? estimationResult.total_cost_standard.toLocaleString() :
+                      estimationResult.total_cost_premium.toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -928,10 +1036,14 @@ export default function RefurbishmentEstimatorPage() {
                       </div>
                       <div className="ml-4 text-right">
                         <p className="text-gray-400 text-sm">
-                          {item.quantity} {item.unit} × £{item.unit_cost.toLocaleString()}
+                          {item.quantity} {item.unit} × £{selectedLevel === 'basic' ? item.unit_cost_basic.toLocaleString() :
+                            selectedLevel === 'standard' ? item.unit_cost_standard.toLocaleString() :
+                            item.unit_cost_premium.toLocaleString()}
                         </p>
                         <p className="text-xl font-bold text-white">
-                          £{item.total_cost.toLocaleString()}
+                          £{selectedLevel === 'basic' ? item.total_cost_basic.toLocaleString() :
+                            selectedLevel === 'standard' ? item.total_cost_standard.toLocaleString() :
+                            item.total_cost_premium.toLocaleString()}
                         </p>
                       </div>
                     </div>
