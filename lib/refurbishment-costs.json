@@ -4,18 +4,34 @@
       "category": "Kitchen",
       "items": [
         {
-          "name": "Kitchen Installation - Basic",
-          "cost_basic": 3,
-          "cost_standard": 8,
-          "cost_premium": 20,
+          "name": "Kitchen Installation - Small",
+          "cost_basic": 5000,
+          "cost_standard": 7500,
+          "cost_premium": 10000,
           "unit": "per kitchen",
-          "description": "Complete kitchen installation including units, worktop, sink"
+          "description": "Small kitchen installation including units, worktop, sink"
         },
         {
-          "name": "Kitchen Appliances - Basic",
-          "cost_basic": 1,
-          "cost_standard": 2,
-          "cost_premium": 5,
+          "name": "Kitchen Installation - Medium",
+          "cost_basic": 10000,
+          "cost_standard": 15000,
+          "cost_premium": 20000,
+          "unit": "per kitchen",
+          "description": "Medium kitchen installation with appliances"
+        },
+        {
+          "name": "Kitchen Installation - Large",
+          "cost_basic": 15000,
+          "cost_standard": 22500,
+          "cost_premium": 30000,
+          "unit": "per kitchen",
+          "description": "Large kitchen installation with premium finishes"
+        },
+        {
+          "name": "Kitchen Appliances",
+          "cost_basic": 800,
+          "cost_standard": 1500,
+          "cost_premium": 3000,
           "unit": "per set",
           "description": "Oven, hob, extractor, fridge freezer"
         }
@@ -25,20 +41,52 @@
       "category": "Bathroom",
       "items": [
         {
-          "name": "Bathroom Suite - Basic",
-          "cost_basic": 2,
-          "cost_standard": 4,
-          "cost_premium": 8,
+          "name": "Bathroom Suite",
+          "cost_basic": 2500,
+          "cost_standard": 4000,
+          "cost_premium": 8000,
           "unit": "per bathroom",
           "description": "Basin, toilet, bath/shower, tiling"
         },
         {
           "name": "En-suite Installation",
-          "cost_basic": 2,
-          "cost_standard": 5,
-          "cost_premium": 10,
+          "cost_basic": 2500,
+          "cost_standard": 5000,
+          "cost_premium": 10000,
           "unit": "per en-suite",
           "description": "Compact bathroom suite for bedroom"
+        },
+        {
+          "name": "Electric Shower Installation",
+          "cost_basic": 200,
+          "cost_standard": 250,
+          "cost_premium": 300,
+          "unit": "per shower",
+          "description": "Electric shower unit supply and fit"
+        },
+        {
+          "name": "Mixer Shower Installation",
+          "cost_basic": 150,
+          "cost_standard": 225,
+          "cost_premium": 300,
+          "unit": "per shower",
+          "description": "Mixer shower valve and installation"
+        },
+        {
+          "name": "Power Shower Installation",
+          "cost_basic": 200,
+          "cost_standard": 350,
+          "cost_premium": 500,
+          "unit": "per shower",
+          "description": "Power shower pump and installation"
+        },
+        {
+          "name": "Digital Shower Installation",
+          "cost_basic": 250,
+          "cost_standard": 625,
+          "cost_premium": 1000,
+          "unit": "per shower",
+          "description": "Digital shower system installation"
         }
       ]
     },
@@ -47,27 +95,43 @@
       "items": [
         {
           "name": "Carpet",
-          "cost_basic": 0.15,
-          "cost_standard": 0.25,
-          "cost_premium": 0.50,
+          "cost_basic": 20,
+          "cost_standard": 30,
+          "cost_premium": 40,
           "unit": "per sqm",
           "description": "Carpet and underlay installation"
         },
         {
           "name": "Laminate Flooring",
-          "cost_basic": 0.20,
-          "cost_standard": 0.35,
-          "cost_premium": 0.60,
+          "cost_basic": 35,
+          "cost_standard": 60,
+          "cost_premium": 80,
           "unit": "per sqm",
           "description": "Laminate or vinyl flooring"
         },
         {
           "name": "Hardwood Flooring",
-          "cost_basic": 0.40,
-          "cost_standard": 0.70,
-          "cost_premium": 1.20,
+          "cost_basic": 50,
+          "cost_standard": 75,
+          "cost_premium": 100,
           "unit": "per sqm",
           "description": "Engineered or solid wood flooring"
+        },
+        {
+          "name": "Parquet Flooring",
+          "cost_basic": 70,
+          "cost_standard": 100,
+          "cost_premium": 130,
+          "unit": "per sqm",
+          "description": "Parquet flooring installation"
+        },
+        {
+          "name": "Resin Flooring",
+          "cost_basic": 50,
+          "cost_standard": 75,
+          "cost_premium": 100,
+          "unit": "per sqm",
+          "description": "Resin floor coating"
         }
       ]
     },
@@ -76,25 +140,25 @@
       "items": [
         {
           "name": "Plastering",
-          "cost_basic": 0.15,
-          "cost_standard": 0.20,
-          "cost_premium": 0.30,
+          "cost_basic": 15,
+          "cost_standard": 20,
+          "cost_premium": 30,
           "unit": "per sqm",
           "description": "Plaster skim or full re-plaster"
         },
         {
           "name": "Painting & Decorating",
-          "cost_basic": 0.08,
-          "cost_standard": 0.12,
-          "cost_premium": 0.20,
+          "cost_basic": 8,
+          "cost_standard": 12,
+          "cost_premium": 20,
           "unit": "per sqm",
           "description": "Professional painting service"
         },
         {
           "name": "Wallpaper",
-          "cost_basic": 0.15,
-          "cost_standard": 0.25,
-          "cost_premium": 0.50,
+          "cost_basic": 15,
+          "cost_standard": 25,
+          "cost_premium": 50,
           "unit": "per sqm",
           "description": "Wallpaper supply and hanging"
         }
@@ -105,33 +169,33 @@
       "items": [
         {
           "name": "Rewire - Full House",
-          "cost_basic": 3,
-          "cost_standard": 5,
-          "cost_premium": 7,
+          "cost_basic": 4500,
+          "cost_standard": 6500,
+          "cost_premium": 9000,
           "unit": "per property",
           "description": "Complete electrical rewiring"
         },
         {
           "name": "Consumer Unit Replacement",
-          "cost_basic": 0.5,
-          "cost_standard": 0.8,
-          "cost_premium": 1.2,
+          "cost_basic": 500,
+          "cost_standard": 800,
+          "cost_premium": 1200,
           "unit": "per unit",
           "description": "New fuse box installation"
         },
         {
           "name": "Additional Sockets/Switches",
-          "cost_basic": 0.08,
-          "cost_standard": 0.12,
-          "cost_premium": 0.20,
+          "cost_basic": 80,
+          "cost_standard": 120,
+          "cost_premium": 200,
           "unit": "per item",
           "description": "New electrical points"
         },
         {
           "name": "Light Fittings",
-          "cost_basic": 0.05,
-          "cost_standard": 0.15,
-          "cost_premium": 0.40,
+          "cost_basic": 50,
+          "cost_standard": 150,
+          "cost_premium": 400,
           "unit": "per fitting",
           "description": "Supply and fit light fixtures"
         }
@@ -142,27 +206,43 @@
       "items": [
         {
           "name": "Boiler Replacement",
-          "cost_basic": 2,
-          "cost_standard": 3,
-          "cost_premium": 5,
+          "cost_basic": 2200,
+          "cost_standard": 3200,
+          "cost_premium": 5200,
           "unit": "per boiler",
           "description": "New combi boiler installation"
         },
         {
           "name": "Central Heating System",
-          "cost_basic": 3,
-          "cost_standard": 5,
-          "cost_premium": 7,
+          "cost_basic": 4000,
+          "cost_standard": 6500,
+          "cost_premium": 9000,
           "unit": "per property",
           "description": "Radiators and pipework"
         },
         {
-          "name": "Radiator",
-          "cost_basic": 0.15,
-          "cost_standard": 0.30,
-          "cost_premium": 0.60,
+          "name": "Radiator Replacement",
+          "cost_basic": 150,
+          "cost_standard": 300,
+          "cost_premium": 600,
           "unit": "per radiator",
           "description": "Supply and fit radiator"
+        },
+        {
+          "name": "Heat Pump Installation",
+          "cost_basic": 8000,
+          "cost_standard": 10000,
+          "cost_premium": 12000,
+          "unit": "per system",
+          "description": "Boiler to heat pump replacement"
+        },
+        {
+          "name": "Hybrid Heat Pump",
+          "cost_basic": 5000,
+          "cost_standard": 7500,
+          "cost_premium": 10000,
+          "unit": "per system",
+          "description": "Hybrid heat pump installation"
         }
       ]
     },
@@ -171,27 +251,67 @@
       "items": [
         {
           "name": "UPVC Windows",
-          "cost_basic": 0.4,
-          "cost_standard": 0.6,
-          "cost_premium": 1.0,
+          "cost_basic": 400,
+          "cost_standard": 600,
+          "cost_premium": 1000,
           "unit": "per window",
           "description": "Double glazed UPVC window"
         },
         {
+          "name": "UPVC Sash Windows",
+          "cost_basic": 500,
+          "cost_standard": 750,
+          "cost_premium": 1000,
+          "unit": "per window",
+          "description": "UPVC sash window installation"
+        },
+        {
+          "name": "Double Glazing Doors",
+          "cost_basic": 600,
+          "cost_standard": 1200,
+          "cost_premium": 2500,
+          "unit": "per door",
+          "description": "Double glazed door installation"
+        },
+        {
           "name": "Internal Doors",
-          "cost_basic": 0.15,
-          "cost_standard": 0.30,
-          "cost_premium": 0.60,
+          "cost_basic": 150,
+          "cost_standard": 300,
+          "cost_premium": 600,
           "unit": "per door",
           "description": "Door and frame supplied and fitted"
         },
         {
           "name": "External Doors",
-          "cost_basic": 0.6,
-          "cost_standard": 1.2,
-          "cost_premium": 2.5,
+          "cost_basic": 600,
+          "cost_standard": 1200,
+          "cost_premium": 2500,
           "unit": "per door",
           "description": "Front/back door with frame"
+        },
+        {
+          "name": "Window Glass Replacement",
+          "cost_basic": 100,
+          "cost_standard": 150,
+          "cost_premium": 250,
+          "unit": "per window",
+          "description": "Double glazed unit replacement"
+        },
+        {
+          "name": "Window Seal Replacement",
+          "cost_basic": 50,
+          "cost_standard": 75,
+          "cost_premium": 100,
+          "unit": "per window",
+          "description": "Window seal replacement"
+        },
+        {
+          "name": "Blown Window Repair",
+          "cost_basic": 80,
+          "cost_standard": 120,
+          "cost_premium": 180,
+          "unit": "per window",
+          "description": "Blown double glazing repair"
         }
       ]
     },
@@ -200,35 +320,279 @@
       "items": [
         {
           "name": "Roof Repairs",
-          "cost_basic": 2,
-          "cost_standard": 5,
-          "cost_premium": 12,
+          "cost_basic": 500,
+          "cost_standard": 750,
+          "cost_premium": 1000,
           "unit": "per property",
-          "description": "Roof repairs or re-roofing"
+          "description": "Roof repairs and maintenance"
+        },
+        {
+          "name": "Roof Replacement",
+          "cost_basic": 5000,
+          "cost_standard": 7500,
+          "cost_premium": 10000,
+          "unit": "per property",
+          "description": "Complete roof replacement"
+        },
+        {
+          "name": "Roof Tile Replacement",
+          "cost_basic": 25,
+          "cost_standard": 40,
+          "cost_premium": 60,
+          "unit": "per sqm",
+          "description": "Roof tile replacement"
+        },
+        {
+          "name": "Roof Refelting",
+          "cost_basic": 30,
+          "cost_standard": 50,
+          "cost_premium": 80,
+          "unit": "per sqm",
+          "description": "Roof felt replacement"
+        },
+        {
+          "name": "Roof Inspection",
+          "cost_basic": 150,
+          "cost_standard": 200,
+          "cost_premium": 250,
+          "unit": "per inspection",
+          "description": "Professional roof inspection"
         },
         {
           "name": "Fascia & Soffits",
-          "cost_basic": 1.5,
-          "cost_standard": 2.5,
-          "cost_premium": 4,
+          "cost_basic": 1500,
+          "cost_standard": 2500,
+          "cost_premium": 4000,
           "unit": "per property",
           "description": "UPVC fascia, soffit and guttering"
         },
         {
           "name": "Rendering",
-          "cost_basic": 0.40,
-          "cost_standard": 0.60,
-          "cost_premium": 1.00,
+          "cost_basic": 40,
+          "cost_standard": 60,
+          "cost_premium": 80,
           "unit": "per sqm",
           "description": "External wall rendering"
         },
         {
           "name": "Driveway",
-          "cost_basic": 3,
-          "cost_standard": 6,
-          "cost_premium": 15,
-          "unit": "per driveway",
+          "cost_basic": 50,
+          "cost_standard": 75,
+          "cost_premium": 100,
+          "unit": "per sqm",
           "description": "Block paving or tarmac driveway"
+        },
+        {
+          "name": "Patio Laying",
+          "cost_basic": 30,
+          "cost_standard": 50,
+          "cost_premium": 80,
+          "unit": "per sqm",
+          "description": "Patio installation"
+        },
+        {
+          "name": "House Cladding",
+          "cost_basic": 50,
+          "cost_standard": 75,
+          "cost_premium": 100,
+          "unit": "per sqm",
+          "description": "External wall cladding"
+        }
+      ]
+    },
+    {
+      "category": "Structural",
+      "items": [
+        {
+          "name": "New Staircase - Straight",
+          "cost_basic": 750,
+          "cost_standard": 1125,
+          "cost_premium": 1500,
+          "unit": "per staircase",
+          "description": "Straight staircase installation"
+        },
+        {
+          "name": "New Staircase - Glass",
+          "cost_basic": 5000,
+          "cost_standard": 15000,
+          "cost_premium": 25000,
+          "unit": "per staircase",
+          "description": "Glass staircase installation"
+        },
+        {
+          "name": "New Staircase - Spiral Wood",
+          "cost_basic": 2500,
+          "cost_standard": 7500,
+          "cost_premium": 15000,
+          "unit": "per staircase",
+          "description": "Spiral wooden staircase"
+        },
+        {
+          "name": "New Staircase - Spiral Metal",
+          "cost_basic": 4000,
+          "cost_standard": 10000,
+          "cost_premium": 17500,
+          "unit": "per staircase",
+          "description": "Spiral metal staircase"
+        },
+        {
+          "name": "Load Bearing Wall Removal",
+          "cost_basic": 2000,
+          "cost_standard": 4000,
+          "cost_premium": 6000,
+          "unit": "per wall",
+          "description": "Structural wall removal with support"
+        },
+        {
+          "name": "Brick Wall Construction",
+          "cost_basic": 100,
+          "cost_standard": 150,
+          "cost_premium": 200,
+          "unit": "per sqm",
+          "description": "New brick wall construction"
+        },
+        {
+          "name": "House Extension",
+          "cost_basic": 1500,
+          "cost_standard": 2500,
+          "cost_premium": 3500,
+          "unit": "per sqm",
+          "description": "Single storey extension"
+        },
+        {
+          "name": "Garage Construction",
+          "cost_basic": 15000,
+          "cost_standard": 25000,
+          "cost_premium": 40000,
+          "unit": "per garage",
+          "description": "Single garage construction"
+        }
+      ]
+    },
+    {
+      "category": "Insulation",
+      "items": [
+        {
+          "name": "External Wall Insulation",
+          "cost_basic": 50,
+          "cost_standard": 75,
+          "cost_premium": 100,
+          "unit": "per sqm",
+          "description": "External wall insulation system"
+        },
+        {
+          "name": "Loft Insulation",
+          "cost_basic": 25,
+          "cost_standard": 35,
+          "cost_premium": 45,
+          "unit": "per sqm",
+          "description": "Loft insulation installation"
+        },
+        {
+          "name": "Floor Insulation",
+          "cost_basic": 30,
+          "cost_standard": 50,
+          "cost_premium": 80,
+          "unit": "per sqm",
+          "description": "Floor insulation installation"
+        },
+        {
+          "name": "Retrofit Insulation",
+          "cost_basic": 20,
+          "cost_standard": 30,
+          "cost_premium": 40,
+          "unit": "per sqm",
+          "description": "Retrofit insulation systems"
+        }
+      ]
+    },
+    {
+      "category": "Damp & Waterproofing",
+      "items": [
+        {
+          "name": "Damp Proofing",
+          "cost_basic": 400,
+          "cost_standard": 600,
+          "cost_premium": 800,
+          "unit": "per room",
+          "description": "Damp proofing treatment"
+        },
+        {
+          "name": "Damp Course Installation",
+          "cost_basic": 800,
+          "cost_standard": 1200,
+          "cost_premium": 1600,
+          "unit": "per linear metre",
+          "description": "Damp proof course installation"
+        },
+        {
+          "name": "Flood Prevention",
+          "cost_basic": 500,
+          "cost_standard": 1000,
+          "cost_premium": 2000,
+          "unit": "per property",
+          "description": "Flood prevention measures"
+        }
+      ]
+    },
+    {
+      "category": "Landscaping",
+      "items": [
+        {
+          "name": "Tree Removal - Small",
+          "cost_basic": 240,
+          "cost_standard": 290,
+          "cost_premium": 340,
+          "unit": "per tree",
+          "description": "Tree removal up to 25ft"
+        },
+        {
+          "name": "Tree Removal - Medium",
+          "cost_basic": 670,
+          "cost_standard": 815,
+          "cost_premium": 960,
+          "unit": "per tree",
+          "description": "Tree removal up to 40ft"
+        },
+        {
+          "name": "Tree Removal - Large",
+          "cost_basic": 1700,
+          "cost_standard": 2075,
+          "cost_premium": 2450,
+          "unit": "per tree",
+          "description": "Tree removal 60ft+"
+        },
+        {
+          "name": "Tree Stump Removal",
+          "cost_basic": 160,
+          "cost_standard": 355,
+          "cost_premium": 710,
+          "unit": "per stump",
+          "description": "Tree stump removal"
+        },
+        {
+          "name": "Fence Repair - Lap/Waney",
+          "cost_basic": 100,
+          "cost_standard": 125,
+          "cost_premium": 150,
+          "unit": "per metre",
+          "description": "Lap/Waney edge fence repair"
+        },
+        {
+          "name": "Fence Repair - Close Boarded",
+          "cost_basic": 110,
+          "cost_standard": 130,
+          "cost_premium": 150,
+          "unit": "per metre",
+          "description": "Close boarded fence repair"
+        },
+        {
+          "name": "Fence Repair - Hit & Miss",
+          "cost_basic": 150,
+          "cost_standard": 185,
+          "cost_premium": 220,
+          "unit": "per metre",
+          "description": "Hit and miss fence repair"
         }
       ]
     },
@@ -237,19 +601,75 @@
       "items": [
         {
           "name": "Skip Hire & Waste Removal",
-          "cost_basic": 0.3,
-          "cost_standard": 0.5,
-          "cost_premium": 0.8,
+          "cost_basic": 300,
+          "cost_standard": 500,
+          "cost_premium": 800,
           "unit": "per property",
           "description": "Waste disposal during refurb"
         },
         {
           "name": "Scaffolding",
-          "cost_basic": 0.8,
-          "cost_standard": 1.2,
-          "cost_premium": 2,
-          "unit": "per property",
+          "cost_basic": 250,
+          "cost_standard": 375,
+          "cost_premium": 500,
+          "unit": "per week",
           "description": "Scaffolding hire for duration"
+        },
+        {
+          "name": "Fitted Wardrobes",
+          "cost_basic": 500,
+          "cost_standard": 750,
+          "cost_premium": 1000,
+          "unit": "per linear metre",
+          "description": "Fitted wardrobe installation"
+        },
+        {
+          "name": "Skylight Installation",
+          "cost_basic": 800,
+          "cost_standard": 1200,
+          "cost_premium": 1800,
+          "unit": "per skylight",
+          "description": "Skylight supply and installation"
+        },
+        {
+          "name": "Bricks - Per 1000",
+          "cost_basic": 400,
+          "cost_standard": 600,
+          "cost_premium": 800,
+          "unit": "per 1000",
+          "description": "Bricks supply per 1000 units"
+        },
+        {
+          "name": "Chimney Sweep",
+          "cost_basic": 50,
+          "cost_standard": 75,
+          "cost_premium": 100,
+          "unit": "per chimney",
+          "description": "Chimney cleaning service"
+        },
+        {
+          "name": "Rat Extermination",
+          "cost_basic": 100,
+          "cost_standard": 150,
+          "cost_premium": 200,
+          "unit": "per treatment",
+          "description": "Pest control treatment"
+        },
+        {
+          "name": "Gas Safety Certificate",
+          "cost_basic": 60,
+          "cost_standard": 75,
+          "cost_premium": 90,
+          "unit": "per certificate",
+          "description": "Gas safety inspection and certificate"
+        },
+        {
+          "name": "Lease Extension",
+          "cost_basic": 5000,
+          "cost_standard": 15000,
+          "cost_premium": 30000,
+          "unit": "per extension",
+          "description": "Lease extension legal costs"
         }
       ]
     }
@@ -260,4 +680,3 @@
     "premium": "Premium materials and high-end finishes. Suitable for high-end rental or sale market."
   }
 }
-
