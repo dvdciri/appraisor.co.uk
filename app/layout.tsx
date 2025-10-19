@@ -1,4 +1,5 @@
 import './globals.css'
+import DatabaseInitializer from './components/DatabaseInitializer'
 
 export const metadata = {
   title: 'UK Property Investment Analysis',
@@ -13,6 +14,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-gray-900 text-white min-h-screen">
+        <DatabaseInitializer />
         {children}
       </body>
     </html>

@@ -24,6 +24,8 @@ export default function StorageDebugPage() {
   const [deleteKeyConfirm, setDeleteKeyConfirm] = useState<string | null>(null)
   const [isMigrating, setIsMigrating] = useState(false)
   const [migrationResult, setMigrationResult] = useState<{success: boolean, migrated: number, errors: string[]} | null>(null)
+  const [isInitializing, setIsInitializing] = useState(false)
+  const [initResult, setInitResult] = useState<{success: boolean, message: string} | null>(null)
 
   useEffect(() => {
     loadStorageData()
@@ -163,6 +165,43 @@ export default function StorageDebugPage() {
     }
   }
 
+  const handleInitializeDatabase = async () => {
+    setIsInitializing(true)
+    setInitResult(null)
+    
+    try {
+      const response = await fetch('/api/db/init', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      const result = await response.json()
+      setInitResult(result)
+      
+      if (result.success) {
+        setToastMessage({
+          type: 'success',
+          text: 'Database initialized successfully'
+        })
+      } else {
+        setToastMessage({
+          type: 'error',
+          text: 'Database initialization failed: ' + result.error
+        })
+      }
+    } catch (error) {
+      console.error('Database initialization error:', error)
+      setToastMessage({
+        type: 'error',
+        text: 'Database initialization failed: ' + (error instanceof Error ? error.message : 'Unknown error')
+      })
+    } finally {
+      setIsInitializing(false)
+    }
+  }
+
   const getItemCount = (item: StorageItem) => {
     if (item.type === 'array') {
       return `${item.value.length} items`
@@ -235,6 +274,17 @@ export default function StorageDebugPage() {
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                 >
                   Export JSON
+                </button>
+                <button
+                  onClick={handleInitializeDatabase}
+                  disabled={isInitializing}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    isInitializing 
+                      ? 'bg-gray-500 cursor-not-allowed text-white' 
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                >
+                  {isInitializing ? 'Initializing...' : 'Initialize Database'}
                 </button>
                 <button
                   onClick={handleMigrateToDatabase}
@@ -323,6 +373,40 @@ export default function StorageDebugPage() {
                   </div>
                 )}
               </div>
+
+              {/* Database Initialization Results */}
+              {initResult && (
+                <div className="mt-6 bg-gray-800 rounded-lg p-6">
+                  <h3 className="text-lg font-bold text-white mb-4">Database Initialization Results</h3>
+                  <div className={`p-4 rounded-lg ${
+                    initResult.success 
+                      ? 'bg-green-900 border border-green-600' 
+                      : 'bg-red-900 border border-red-600'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      {initResult.success ? (
+                        <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                      <span className={`font-medium ${
+                        initResult.success ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {initResult.success ? 'Database Initialized' : 'Initialization Failed'}
+                      </span>
+                    </div>
+                    <p className={`text-sm ${
+                      initResult.success ? 'text-green-300' : 'text-red-300'
+                    }`}>
+                      {initResult.message}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Migration Results */}
               {migrationResult && (
