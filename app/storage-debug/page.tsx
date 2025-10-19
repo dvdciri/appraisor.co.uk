@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Header from '../components/Header'
 import Toast from '../components/Toast'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { migrateToDatabase } from '../../lib/persistence'
 
 interface StorageItem {
   key: string
@@ -21,6 +22,8 @@ export default function StorageDebugPage() {
   const [toastMessage, setToastMessage] = useState<{type: 'success' | 'info' | 'error', text: string} | null>(null)
   const [clearAllConfirm, setClearAllConfirm] = useState(false)
   const [deleteKeyConfirm, setDeleteKeyConfirm] = useState<string | null>(null)
+  const [isMigrating, setIsMigrating] = useState(false)
+  const [migrationResult, setMigrationResult] = useState<{success: boolean, migrated: number, errors: string[]} | null>(null)
 
   useEffect(() => {
     loadStorageData()
@@ -125,6 +128,41 @@ export default function StorageDebugPage() {
     URL.revokeObjectURL(url)
   }
 
+  const handleMigrateToDatabase = async () => {
+    setIsMigrating(true)
+    setMigrationResult(null)
+    
+    try {
+      const result = await migrateToDatabase()
+      setMigrationResult(result)
+      
+      if (result.success) {
+        setToastMessage({
+          type: 'success',
+          text: `Migration completed successfully! ${result.migrated} items migrated.`
+        })
+      } else {
+        setToastMessage({
+          type: 'error',
+          text: `Migration failed: ${result.errors.join(', ')}`
+        })
+      }
+    } catch (error) {
+      const errorResult = {
+        success: false,
+        migrated: 0,
+        errors: [`Migration failed: ${error}`]
+      }
+      setMigrationResult(errorResult)
+      setToastMessage({
+        type: 'error',
+        text: `Migration failed: ${error}`
+      })
+    } finally {
+      setIsMigrating(false)
+    }
+  }
+
   const getItemCount = (item: StorageItem) => {
     if (item.type === 'array') {
       return `${item.value.length} items`
@@ -197,6 +235,17 @@ export default function StorageDebugPage() {
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                 >
                   Export JSON
+                </button>
+                <button
+                  onClick={handleMigrateToDatabase}
+                  disabled={isMigrating}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    isMigrating 
+                      ? 'bg-gray-500 cursor-not-allowed text-white' 
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
+                >
+                  {isMigrating ? 'Migrating...' : 'Migrate to Database'}
                 </button>
                 <button
                   onClick={clearStorage}
@@ -274,6 +323,55 @@ export default function StorageDebugPage() {
                   </div>
                 )}
               </div>
+
+              {/* Migration Results */}
+              {migrationResult && (
+                <div className="mt-6 bg-gray-800 rounded-lg p-6">
+                  <h3 className="text-lg font-bold text-white mb-4">Migration Results</h3>
+                  <div className={`p-4 rounded-lg ${
+                    migrationResult.success 
+                      ? 'bg-green-900 border border-green-600' 
+                      : 'bg-red-900 border border-red-600'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      {migrationResult.success ? (
+                        <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                      <span className={`font-medium ${
+                        migrationResult.success ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {migrationResult.success ? 'Migration Successful' : 'Migration Failed'}
+                      </span>
+                    </div>
+                    <p className={`text-sm ${
+                      migrationResult.success ? 'text-green-300' : 'text-red-300'
+                    }`}>
+                      {migrationResult.success 
+                        ? `${migrationResult.migrated} items migrated successfully`
+                        : `Migration failed with ${migrationResult.errors.length} error(s)`
+                      }
+                    </p>
+                    {migrationResult.errors.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-sm text-red-300 font-medium mb-2">Errors:</p>
+                        <ul className="text-xs text-red-300 space-y-1 max-h-32 overflow-y-auto">
+                          {migrationResult.errors.map((error, index) => (
+                            <li key={index} className="bg-red-800 px-2 py-1 rounded">
+                              {error}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Value Display */}

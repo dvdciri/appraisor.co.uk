@@ -1944,15 +1944,18 @@ export default function InvestPage() {
 
   // Load persisted data on mount
   useEffect(() => {
-    // Load property data
-    const persistedPropertyData = loadPropertyData()
-    if (persistedPropertyData) {
-      setPropertyData(persistedPropertyData)
-      setLoading(false)
-    } else {
-      // Load property data from API if not persisted
-      loadPropertyDataFromAPI()
+    const loadPersistedData = async () => {
+      // Load property data
+      const persistedPropertyData = await loadPropertyData()
+      if (persistedPropertyData) {
+        setPropertyData(persistedPropertyData)
+        setLoading(false)
+      } else {
+        // Load property data from API if not persisted
+        loadPropertyDataFromAPI()
+      }
     }
+    loadPersistedData()
   }, [])
 
   // Save property data when it changes

@@ -2,7 +2,6 @@
 const STORAGE_KEYS = {
   PROPERTY_DATA: 'estimo_property_data', // DEPRECATED - kept for migration
   CALCULATOR_DATA: 'estimo_calculator_data',
-  PROPERTY_LISTS: 'estimo_property_lists',
   // New storage keys
   PROPERTIES: 'estimo_properties', // Generic property data (keyed by UPRN)
   USER_ANALYSES: 'estimo_user_analyses', // User-specific analyses (keyed by analysisId)
@@ -172,38 +171,17 @@ export interface PersistedCalculatorData {
   }
 }
 
-export interface PropertyList {
-  id: string
-  name: string
-  propertyIds: string[]
-  createdAt: number
-  updatedAt: number
-  order?: number
+
+// Generic storage functions - now using API routes
+export async function saveToStorage<T>(key: string, data: T): Promise<void> {
+  // This function is kept for backward compatibility but now calls API routes
+  console.warn('saveToStorage is deprecated, use specific API functions instead')
 }
 
-export interface PropertyLists {
-  [listId: string]: PropertyList
-}
-
-// Generic storage functions
-export function saveToStorage<T>(key: string, data: T): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(key, JSON.stringify(data))
-  } catch (error) {
-    console.error(`Failed to save to localStorage (${key}):`, error)
-  }
-}
-
-export function loadFromStorage<T>(key: string, defaultValue: T): T {
-  if (typeof window === 'undefined') return defaultValue
-  try {
-    const item = localStorage.getItem(key)
-    return item ? JSON.parse(item) : defaultValue
-  } catch (error) {
-    console.error(`Failed to load from localStorage (${key}):`, error)
-    return defaultValue
-  }
+export async function loadFromStorage<T>(key: string, defaultValue: T): Promise<T> {
+  // This function is kept for backward compatibility but now calls API routes
+  console.warn('loadFromStorage is deprecated, use specific API functions instead')
+  return defaultValue
 }
 
 
@@ -216,8 +194,8 @@ export function savePropertyData(propertyData: any): void {
   saveToStorage(STORAGE_KEYS.PROPERTY_DATA, data)
 }
 
-export function loadPropertyData(): any | null {
-  const data = loadFromStorage<PersistedPropertyData>(STORAGE_KEYS.PROPERTY_DATA, {
+export async function loadPropertyData(): Promise<any | null> {
+  const data = await loadFromStorage<PersistedPropertyData>(STORAGE_KEYS.PROPERTY_DATA, {
     data: null,
     lastUpdated: 0
   })
@@ -225,26 +203,51 @@ export function loadPropertyData(): any | null {
 }
 
 
-// Calculator data persistence (per property)
-export function saveCalculatorData(propertyId: string, calculatorData: CalculatorData): void {
+// Calculator data persistence (per property) - now using API routes
+export async function saveCalculatorData(propertyId: string, calculatorData: CalculatorData): Promise<void> {
   if (!propertyId) return
   
-  const allData = loadFromStorage<PersistedCalculatorData>(STORAGE_KEYS.CALCULATOR_DATA, {})
-  
-  allData[propertyId] = {
-    data: calculatorData,
-    lastUpdated: Date.now()
+  try {
+    const response = await fetch('/api/db/calculator', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        analysisId: propertyId,
+        data: calculatorData
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to save calculator data: ${response.statusText}`)
+    }
+  } catch (error) {
+    console.error('Failed to save calculator data to database:', error)
+    throw error
   }
-  
-  saveToStorage(STORAGE_KEYS.CALCULATOR_DATA, allData)
 }
 
-export function loadCalculatorData(propertyId: string): CalculatorData | null {
+export async function loadCalculatorData(propertyId: string): Promise<CalculatorData | null> {
   if (!propertyId) return null
   
-  const allData = loadFromStorage<PersistedCalculatorData>(STORAGE_KEYS.CALCULATOR_DATA, {})
-  
-  return allData[propertyId]?.data || null
+  try {
+    const response = await fetch(`/api/db/calculator?id=${encodeURIComponent(propertyId)}`)
+    
+    if (response.status === 404) {
+      return null
+    }
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch calculator data: ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    return data.data
+  } catch (error) {
+    console.error('Failed to fetch calculator data from database:', error)
+    return null
+  }
 }
 
 // Clear all persisted data
@@ -255,125 +258,37 @@ export function clearAllPersistedData(): void {
   })
 }
 
-// Property lists persistence
-export function loadPropertyLists(): PropertyLists {
-  return loadFromStorage<PropertyLists>(STORAGE_KEYS.PROPERTY_LISTS, {})
-}
-
-export function savePropertyLists(lists: PropertyLists): void {
-  saveToStorage(STORAGE_KEYS.PROPERTY_LISTS, lists)
-}
-
-export function createPropertyList(name: string): PropertyList {
-  const lists = loadPropertyLists()
-  const id = `list_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  
-  const newList: PropertyList = {
-    id,
-    name,
-    propertyIds: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now()
-  }
-  
-  lists[id] = newList
-  savePropertyLists(lists)
-  
-  return newList
-}
-
-export function addPropertyToList(listId: string, propertyId: string): boolean {
-  const lists = loadPropertyLists()
-  const list = lists[listId]
-  
-  if (!list) return false
-  
-  // Don't add if already in list
-  if (list.propertyIds.includes(propertyId)) return false
-  
-  list.propertyIds.push(propertyId)
-  list.updatedAt = Date.now()
-  
-  savePropertyLists(lists)
-  return true
-}
-
-export function removePropertyFromList(listId: string, propertyId: string): boolean {
-  const lists = loadPropertyLists()
-  const list = lists[listId]
-  
-  if (!list) return false
-  
-  const index = list.propertyIds.indexOf(propertyId)
-  if (index === -1) return false
-  
-  list.propertyIds.splice(index, 1)
-  list.updatedAt = Date.now()
-  
-  savePropertyLists(lists)
-  return true
-}
-
-export function deletePropertyList(listId: string): boolean {
-  const lists = loadPropertyLists()
-  
-  if (!lists[listId]) return false
-  
-  delete lists[listId]
-  savePropertyLists(lists)
-  return true
-}
-
-export function getPropertyList(listId: string): PropertyList | null {
-  const lists = loadPropertyLists()
-  return lists[listId] || null
-}
-
-export function getAllPropertyLists(): PropertyList[] {
-  const lists = loadPropertyLists()
-  return Object.values(lists).sort((a, b) => {
-    // Sort by order if both have it, otherwise fall back to updatedAt
-    if (a.order !== undefined && b.order !== undefined) {
-      return a.order - b.order
-    }
-    // If only one has order, prioritize it
-    if (a.order !== undefined) return -1
-    if (b.order !== undefined) return 1
-    // Fall back to updatedAt (most recent first)
-    return b.updatedAt - a.updatedAt
-  })
-}
 
 // Property data store helpers
-export function loadPropertyDataStore(): PropertyDataStore {
-  return loadFromStorage<PropertyDataStore>('propertyDataStore', {})
+export async function loadPropertyDataStore(): Promise<PropertyDataStore> {
+  return await loadFromStorage<PropertyDataStore>('propertyDataStore', {})
 }
 
-export function savePropertyDataStore(store: PropertyDataStore): void {
-  saveToStorage('propertyDataStore', store)
+export async function savePropertyDataStore(store: PropertyDataStore): Promise<void> {
+  await saveToStorage('propertyDataStore', store)
 }
 
-export function getPropertyFromStore(propertyId: string): PropertyDataStoreItem | null {
-  const store = loadPropertyDataStore()
+export async function getPropertyFromStore(propertyId: string): Promise<PropertyDataStoreItem | null> {
+  const store = await loadPropertyDataStore()
   return store[propertyId] || null
 }
 
-export function updatePropertyInStore(propertyId: string, updates: Partial<PropertyDataStoreItem>): void {
-  const store = loadPropertyDataStore()
+export async function updatePropertyInStore(propertyId: string, updates: Partial<PropertyDataStoreItem>): Promise<void> {
+  const store = await loadPropertyDataStore()
   if (store[propertyId]) {
     store[propertyId] = { ...store[propertyId], ...updates }
-    savePropertyDataStore(store)
+    await savePropertyDataStore(store)
   }
 }
 
 // Delete a property from all storage locations
-export function deleteProperty(propertyId: string): void {
+export async function deleteProperty(propertyId: string): Promise<void> {
   if (typeof window === 'undefined') return
   
   // Remove from propertyDataStore (legacy)
-  const store = loadPropertyDataStore()
+  const store = await loadPropertyDataStore()
   delete store[propertyId]
-  savePropertyDataStore(store)
+  await savePropertyDataStore(store)
   
   // Remove from recentAnalyses (legacy)
   try {
@@ -388,23 +303,13 @@ export function deleteProperty(propertyId: string): void {
   }
   
   // Remove from new user analyses store
-  deleteUserAnalysis(propertyId)
+  await deleteUserAnalysis(propertyId)
   
   // Remove from calculator data
-  const allCalculatorData = loadFromStorage<PersistedCalculatorData>(STORAGE_KEYS.CALCULATOR_DATA, {})
+  const allCalculatorData = await loadFromStorage<PersistedCalculatorData>(STORAGE_KEYS.CALCULATOR_DATA, {})
   delete allCalculatorData[propertyId]
-  saveToStorage(STORAGE_KEYS.CALCULATOR_DATA, allCalculatorData)
+  await saveToStorage(STORAGE_KEYS.CALCULATOR_DATA, allCalculatorData)
   
-  // Remove from all property lists
-  const lists = loadPropertyLists()
-  Object.values(lists).forEach(list => {
-    const index = list.propertyIds.indexOf(propertyId)
-    if (index !== -1) {
-      list.propertyIds.splice(index, 1)
-      list.updatedAt = Date.now()
-    }
-  })
-  savePropertyLists(lists)
 }
 
 // ============================================================================
@@ -421,119 +326,225 @@ export function extractUPRN(propertyData: any): string | null {
   }
 }
 
-// Generic Properties Store (keyed by UPRN)
-export function loadPropertiesStore(): PropertiesStore {
-  return loadFromStorage<PropertiesStore>(STORAGE_KEYS.PROPERTIES, {})
+// Generic Properties Store (keyed by UPRN) - now using API routes
+export async function loadPropertiesStore(): Promise<PropertiesStore> {
+  // This function is kept for backward compatibility
+  console.warn('loadPropertiesStore is deprecated, use getGenericProperty instead')
+  return {}
 }
 
-export function savePropertiesStore(store: PropertiesStore): void {
-  saveToStorage(STORAGE_KEYS.PROPERTIES, store)
+export async function savePropertiesStore(store: PropertiesStore): Promise<void> {
+  // This function is kept for backward compatibility
+  console.warn('savePropertiesStore is deprecated, use saveGenericProperty instead')
 }
 
-export function saveGenericProperty(uprn: string, propertyData: any): void {
+export async function saveGenericProperty(uprn: string, propertyData: any): Promise<void> {
   if (!uprn) return
   
-  const store = loadPropertiesStore()
-  const existing = store[uprn]
-  
-  store[uprn] = {
-    data: propertyData,
-    lastFetched: Date.now(),
-    fetchedCount: (existing?.fetchedCount || 0) + 1
+  try {
+    const response = await fetch('/api/db/properties', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        uprn,
+        data: propertyData,
+        lastFetched: Date.now(),
+        fetchedCount: 1
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to save property: ${response.statusText}`)
+    }
+  } catch (error) {
+    console.error('Failed to save property to database:', error)
+    throw error
   }
-  
-  savePropertiesStore(store)
 }
 
-export function getGenericProperty(uprn: string): GenericPropertyData | null {
+export async function getGenericProperty(uprn: string): Promise<GenericPropertyData | null> {
   if (!uprn) return null
-  const store = loadPropertiesStore()
-  return store[uprn] || null
-}
-
-// User Analyses Store (keyed by analysisId)
-export function loadUserAnalysesStore(): UserAnalysesStore {
-  return loadFromStorage<UserAnalysesStore>(STORAGE_KEYS.USER_ANALYSES, {})
-}
-
-export function saveUserAnalysesStore(store: UserAnalysesStore): void {
-  saveToStorage(STORAGE_KEYS.USER_ANALYSES, store)
-}
-
-export function saveUserAnalysis(analysisId: string, analysis: UserAnalysis): void {
-  if (!analysisId) return
   
-  const store = loadUserAnalysesStore()
-  store[analysisId] = analysis
-  saveUserAnalysesStore(store)
-  
-  // Also update recent analyses list
-  addToRecentAnalyses(analysisId)
-}
-
-export function getUserAnalysis(analysisId: string): UserAnalysis | null {
-  if (!analysisId) return null
-  const store = loadUserAnalysesStore()
-  return store[analysisId] || null
-}
-
-export function updateUserAnalysis(analysisId: string, updates: Partial<UserAnalysis>): void {
-  if (!analysisId) return
-  
-  const store = loadUserAnalysesStore()
-  if (store[analysisId]) {
-    store[analysisId] = { ...store[analysisId], ...updates }
-    saveUserAnalysesStore(store)
+  try {
+    const response = await fetch(`/api/db/properties?uprn=${encodeURIComponent(uprn)}`)
+    
+    if (response.status === 404) {
+      return null
+    }
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch property: ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    return {
+      data: data.data,
+      lastFetched: new Date(data.lastFetched).getTime(),
+      fetchedCount: data.fetchedCount
+    }
+  } catch (error) {
+    console.error('Failed to fetch property from database:', error)
+    return null
   }
 }
 
-export function deleteUserAnalysis(analysisId: string): void {
+// User Analyses Store (keyed by analysisId) - now using API routes
+export async function loadUserAnalysesStore(): Promise<UserAnalysesStore> {
+  // This function is kept for backward compatibility
+  console.warn('loadUserAnalysesStore is deprecated, use getUserAnalysis instead')
+  return {}
+}
+
+export async function saveUserAnalysesStore(store: UserAnalysesStore): Promise<void> {
+  // This function is kept for backward compatibility
+  console.warn('saveUserAnalysesStore is deprecated, use saveUserAnalysis instead')
+}
+
+export async function saveUserAnalysis(analysisId: string, analysis: UserAnalysis): Promise<void> {
   if (!analysisId) return
   
-  const store = loadUserAnalysesStore()
-  delete store[analysisId]
-  saveUserAnalysesStore(store)
+  try {
+    const response = await fetch('/api/db/analyses', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        analysisId,
+        uprn: analysis.uprn,
+        searchAddress: analysis.searchAddress,
+        searchPostcode: analysis.searchPostcode,
+        timestamp: analysis.timestamp,
+        selectedComparables: analysis.selectedComparables,
+        calculatedValuation: analysis.calculatedValuation,
+        valuationBasedOnComparables: analysis.valuationBasedOnComparables,
+        lastValuationUpdate: analysis.lastValuationUpdate,
+        calculatedRent: analysis.calculatedRent,
+        rentBasedOnComparables: analysis.rentBasedOnComparables,
+        lastRentUpdate: analysis.lastRentUpdate,
+        calculatedYield: analysis.calculatedYield,
+        lastYieldUpdate: analysis.lastYieldUpdate,
+        filters: analysis.filters
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to save analysis: ${response.statusText}`)
+    }
+  } catch (error) {
+    console.error('Failed to save analysis to database:', error)
+    throw error
+  }
+}
+
+export async function getUserAnalysis(analysisId: string): Promise<UserAnalysis | null> {
+  if (!analysisId) return null
   
-  // Also remove from recent analyses
-  removeFromRecentAnalyses(analysisId)
+  try {
+    const response = await fetch(`/api/db/analyses?id=${encodeURIComponent(analysisId)}`)
+    
+    if (response.status === 404) {
+      return null
+    }
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch analysis: ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    return {
+      uprn: data.uprn,
+      searchAddress: data.searchAddress,
+      searchPostcode: data.searchPostcode,
+      timestamp: new Date(data.timestamp).getTime(),
+      selectedComparables: data.selectedComparables || [],
+      calculatedValuation: data.calculatedValuation,
+      valuationBasedOnComparables: data.valuationBasedOnComparables,
+      lastValuationUpdate: data.lastValuationUpdate ? new Date(data.lastValuationUpdate).getTime() : undefined,
+      calculatedRent: data.calculatedRent,
+      rentBasedOnComparables: data.rentBasedOnComparables,
+      lastRentUpdate: data.lastRentUpdate ? new Date(data.lastRentUpdate).getTime() : undefined,
+      calculatedYield: data.calculatedYield,
+      lastYieldUpdate: data.lastYieldUpdate ? new Date(data.lastYieldUpdate).getTime() : undefined,
+      filters: data.filters || {}
+    }
+  } catch (error) {
+    console.error('Failed to fetch analysis from database:', error)
+    return null
+  }
 }
 
-// Recent Analyses List
-export function loadRecentAnalyses(): RecentAnalysisItem[] {
-  return loadFromStorage<RecentAnalysisItem[]>(STORAGE_KEYS.RECENT_ANALYSES, [])
-}
-
-export function saveRecentAnalyses(analyses: RecentAnalysisItem[]): void {
-  saveToStorage(STORAGE_KEYS.RECENT_ANALYSES, analyses)
-}
-
-export function addToRecentAnalyses(analysisId: string): void {
-  const recent = loadRecentAnalyses()
+export async function updateUserAnalysis(analysisId: string, updates: Partial<UserAnalysis>): Promise<void> {
+  if (!analysisId) return
   
-  // Remove if already exists
-  const filtered = recent.filter(item => item.analysisId !== analysisId)
-  
-  // Add to beginning
-  const updated = [
-    { analysisId, timestamp: Date.now() },
-    ...filtered
-  ].slice(0, 50) // Keep last 50
-  
-  saveRecentAnalyses(updated)
+  // Get existing analysis and merge with updates
+  const existing = await getUserAnalysis(analysisId)
+  if (existing) {
+    const updated = { ...existing, ...updates }
+    await saveUserAnalysis(analysisId, updated)
+  }
 }
 
-export function removeFromRecentAnalyses(analysisId: string): void {
-  const recent = loadRecentAnalyses()
-  const filtered = recent.filter(item => item.analysisId !== analysisId)
-  saveRecentAnalyses(filtered)
+export async function deleteUserAnalysis(analysisId: string): Promise<void> {
+  if (!analysisId) return
+  
+  try {
+    const response = await fetch(`/api/db/analyses?id=${encodeURIComponent(analysisId)}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete analysis: ${response.statusText}`)
+    }
+  } catch (error) {
+    console.error('Failed to delete analysis from database:', error)
+    throw error
+  }
 }
 
-// Get full analysis data (combines property data + user analysis)
-export function getFullAnalysisData(analysisId: string): { propertyData: any, userAnalysis: UserAnalysis } | null {
-  const userAnalysis = getUserAnalysis(analysisId)
+// Recent Analyses List - now using API routes
+export async function loadRecentAnalyses(): Promise<RecentAnalysisItem[]> {
+  try {
+    const response = await fetch('/api/db/analyses?recent=true')
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch recent analyses: ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    return data.map((item: any) => ({
+      analysisId: item.analysis_id,
+      timestamp: new Date(item.timestamp).getTime()
+    }))
+  } catch (error) {
+    console.error('Failed to fetch recent analyses from database:', error)
+    return []
+  }
+}
+
+export async function saveRecentAnalyses(analyses: RecentAnalysisItem[]): Promise<void> {
+  // This function is kept for backward compatibility
+  console.warn('saveRecentAnalyses is deprecated, recent analyses are managed automatically')
+}
+
+export async function addToRecentAnalyses(analysisId: string): Promise<void> {
+  // Recent analyses are now managed automatically by the saveUserAnalysis function
+  console.warn('addToRecentAnalyses is deprecated, recent analyses are managed automatically')
+}
+
+export async function removeFromRecentAnalyses(analysisId: string): Promise<void> {
+  // Recent analyses are now managed automatically by the deleteUserAnalysis function
+  console.warn('removeFromRecentAnalyses is deprecated, recent analyses are managed automatically')
+}
+
+// Get full analysis data (combines property data + user analysis) - now async
+export async function getFullAnalysisData(analysisId: string): Promise<{ propertyData: any, userAnalysis: UserAnalysis } | null> {
+  const userAnalysis = await getUserAnalysis(analysisId)
   if (!userAnalysis) return null
   
-  const genericProperty = getGenericProperty(userAnalysis.uprn)
+  const genericProperty = await getGenericProperty(userAnalysis.uprn)
   if (!genericProperty) return null
   
   return {
@@ -545,6 +556,101 @@ export function getFullAnalysisData(analysisId: string): { propertyData: any, us
 // ============================================================================
 // MIGRATION FUNCTIONS
 // ============================================================================
+
+// Export localStorage data for migration to database
+export function exportLocalStorageData(): {
+  properties: PropertiesStore
+  userAnalyses: UserAnalysesStore
+  recentAnalyses: RecentAnalysisItem[]
+  calculatorData: PersistedCalculatorData
+} {
+  if (typeof window === 'undefined') {
+    return { properties: {}, userAnalyses: {}, recentAnalyses: [], calculatorData: {} }
+  }
+
+  try {
+    // Load from localStorage using the old functions
+    const properties: PropertiesStore = {}
+    const userAnalyses: UserAnalysesStore = {}
+    const recentAnalyses: RecentAnalysisItem[] = []
+    const calculatorData: PersistedCalculatorData = {}
+
+    // Load properties store
+    try {
+      const propertiesData = localStorage.getItem(STORAGE_KEYS.PROPERTIES)
+      if (propertiesData) {
+        Object.assign(properties, JSON.parse(propertiesData))
+      }
+    } catch (e) {
+      console.warn('Failed to load properties from localStorage:', e)
+    }
+
+    // Load user analyses store
+    try {
+      const analysesData = localStorage.getItem(STORAGE_KEYS.USER_ANALYSES)
+      if (analysesData) {
+        Object.assign(userAnalyses, JSON.parse(analysesData))
+      }
+    } catch (e) {
+      console.warn('Failed to load user analyses from localStorage:', e)
+    }
+
+    // Load recent analyses
+    try {
+      const recentData = localStorage.getItem(STORAGE_KEYS.RECENT_ANALYSES)
+      if (recentData) {
+        recentAnalyses.push(...JSON.parse(recentData))
+      }
+    } catch (e) {
+      console.warn('Failed to load recent analyses from localStorage:', e)
+    }
+
+    // Load calculator data
+    try {
+      const calcData = localStorage.getItem(STORAGE_KEYS.CALCULATOR_DATA)
+      if (calcData) {
+        Object.assign(calculatorData, JSON.parse(calcData))
+      }
+    } catch (e) {
+      console.warn('Failed to load calculator data from localStorage:', e)
+    }
+
+    return { properties, userAnalyses, recentAnalyses, calculatorData }
+  } catch (error) {
+    console.error('Failed to export localStorage data:', error)
+    return { properties: {}, userAnalyses: {}, recentAnalyses: [], calculatorData: {} }
+  }
+}
+
+// Migrate localStorage data to database
+export async function migrateToDatabase(): Promise<{ success: boolean, migrated: number, errors: string[] }> {
+  try {
+    const data = exportLocalStorageData()
+    
+    const response = await fetch('/api/migrate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+
+    const result = await response.json()
+    
+    if (!response.ok) {
+      throw new Error(`Migration failed: ${result.error || response.statusText}`)
+    }
+
+    return result
+  } catch (error) {
+    console.error('Migration error:', error)
+    return {
+      success: false,
+      migrated: 0,
+      errors: [`Migration failed: ${error}`]
+    }
+  }
+}
 
 export function migrateOldDataToNewStructure(): { success: boolean, migrated: number, errors: string[] } {
   if (typeof window === 'undefined') return { success: false, migrated: 0, errors: ['Not in browser environment'] }

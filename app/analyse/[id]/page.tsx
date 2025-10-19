@@ -262,34 +262,38 @@ function InvestmentCalculator({ propertyId, onNotesModalOpen, notes }: {
     // Reset flag when property changes
     hasLoadedData.current = false
     
-    const savedData = loadCalculatorData(propertyId)
-    
-    if (savedData) {
-      // Load saved data (defaults are already set when property was first searched)
-      console.log('Loading calculator data with purchase price:', savedData.purchaseFinance.purchasePrice || 'Not set')
-      setPurchaseType(savedData.purchaseType)
-      setIncludeFeesInLoan(savedData.includeFeesInLoan)
-      setBridgingDetails(savedData.bridgingDetails)
-      setExitStrategy(savedData.exitStrategy)
-      setRefinanceDetails(savedData.refinanceDetails)
-      setSaleDetails(savedData.saleDetails)
-      setRefurbItems(savedData.refurbItems)
-      setFundingSources(savedData.fundingSources)
-      setInitialCosts(savedData.initialCosts)
-      setPurchaseFinance(savedData.purchaseFinance)
-      setMonthlyIncome(savedData.monthlyIncome)
-      setMonthlyExpenses(savedData.monthlyExpenses)
-      setPropertyValue(savedData.propertyValue)
+    const loadData = async () => {
+      const savedData = await loadCalculatorData(propertyId)
       
-      // Use setTimeout to ensure state updates have completed before allowing saves
-      setTimeout(() => {
+      if (savedData) {
+        // Load saved data (defaults are already set when property was first searched)
+        console.log('Loading calculator data with purchase price:', savedData.purchaseFinance.purchasePrice || 'Not set')
+        setPurchaseType(savedData.purchaseType)
+        setIncludeFeesInLoan(savedData.includeFeesInLoan)
+        setBridgingDetails(savedData.bridgingDetails)
+        setExitStrategy(savedData.exitStrategy)
+        setRefinanceDetails(savedData.refinanceDetails)
+        setSaleDetails(savedData.saleDetails)
+        setRefurbItems(savedData.refurbItems)
+        setFundingSources(savedData.fundingSources)
+        setInitialCosts(savedData.initialCosts)
+        setPurchaseFinance(savedData.purchaseFinance)
+        setMonthlyIncome(savedData.monthlyIncome)
+        setMonthlyExpenses(savedData.monthlyExpenses)
+        setPropertyValue(savedData.propertyValue)
+        
+        // Use setTimeout to ensure state updates have completed before allowing saves
+        setTimeout(() => {
+          hasLoadedData.current = true
+        }, 0)
+      } else {
+        // No saved data found - this shouldn't happen as defaults are created on search
+        // Allow saves immediately
         hasLoadedData.current = true
-      }, 0)
-    } else {
-      // No saved data found - this shouldn't happen as defaults are created on search
-      // Allow saves immediately
-      hasLoadedData.current = true
+      }
     }
+    
+    loadData()
   }, [propertyId])
 
   // Save calculator data whenever any state changes (but only after initial load)
@@ -2148,8 +2152,8 @@ export default function InvestPage() {
   useEffect(() => {
     if (!params.id) return
     
-    import('../../../lib/persistence').then(({ loadCalculatorData }) => {
-      const savedData = loadCalculatorData(params.id as string)
+    import('../../../lib/persistence').then(async ({ loadCalculatorData }) => {
+      const savedData = await loadCalculatorData(params.id as string)
       if (savedData?.notes) {
         setNotes(savedData.notes)
       }
@@ -2160,10 +2164,10 @@ export default function InvestPage() {
   useEffect(() => {
     if (!params.id || !notes) return
     
-    import('../../../lib/persistence').then(({ loadCalculatorData, saveCalculatorData }) => {
-      const currentData = loadCalculatorData(params.id as string)
+    import('../../../lib/persistence').then(async ({ loadCalculatorData, saveCalculatorData }) => {
+      const currentData = await loadCalculatorData(params.id as string)
       if (currentData) {
-        saveCalculatorData(params.id as string, { ...currentData, notes })
+        await saveCalculatorData(params.id as string, { ...currentData, notes })
       }
     })
   }, [notes, params.id])
@@ -2180,47 +2184,50 @@ export default function InvestPage() {
         
         if (params.id) {
           // Load from new storage structure
-          const fullData = getFullAnalysisData(params.id as string)
-          
-          if (fullData) {
-            console.log('Loaded property data from new storage structure')
-            // Combine property data with user analysis for backward compatibility
-            setPropertyData({
-              ...fullData.propertyData,
-              calculatedValuation: fullData.userAnalysis.calculatedValuation,
-              valuationBasedOnComparables: fullData.userAnalysis.valuationBasedOnComparables,
-              lastValuationUpdate: fullData.userAnalysis.lastValuationUpdate,
-              calculatedRent: fullData.userAnalysis.calculatedRent,
-              rentBasedOnComparables: fullData.userAnalysis.rentBasedOnComparables,
-              lastRentUpdate: fullData.userAnalysis.lastRentUpdate,
-              calculatedYield: fullData.userAnalysis.calculatedYield,
-              lastYieldUpdate: fullData.userAnalysis.lastYieldUpdate
-            })
-          } else {
-            console.error('No analysis found for UID:', params.id)
+          const loadData = async () => {
+            const fullData = await getFullAnalysisData(params.id as string)
             
-            // Fallback: try to load the most recent analysis
-            const recentList = loadRecentAnalyses()
-            if (recentList.length > 0) {
-              const mostRecentId = recentList[0].analysisId
-              console.log('Falling back to most recent analysis with UID:', mostRecentId)
+            if (fullData) {
+              console.log('Loaded property data from new storage structure')
+              // Combine property data with user analysis for backward compatibility
+              setPropertyData({
+                ...fullData.propertyData,
+                calculatedValuation: fullData.userAnalysis.calculatedValuation,
+                valuationBasedOnComparables: fullData.userAnalysis.valuationBasedOnComparables,
+                lastValuationUpdate: fullData.userAnalysis.lastValuationUpdate,
+                calculatedRent: fullData.userAnalysis.calculatedRent,
+                rentBasedOnComparables: fullData.userAnalysis.rentBasedOnComparables,
+                lastRentUpdate: fullData.userAnalysis.lastRentUpdate,
+                calculatedYield: fullData.userAnalysis.calculatedYield,
+                lastYieldUpdate: fullData.userAnalysis.lastYieldUpdate
+              })
+            } else {
+              console.error('No analysis found for UID:', params.id)
               
-              const fallbackData = getFullAnalysisData(mostRecentId)
-              if (fallbackData) {
-                setPropertyData({
-                  ...fallbackData.propertyData,
-                  calculatedValuation: fallbackData.userAnalysis.calculatedValuation,
-                  valuationBasedOnComparables: fallbackData.userAnalysis.valuationBasedOnComparables,
-                  lastValuationUpdate: fallbackData.userAnalysis.lastValuationUpdate,
-                  calculatedRent: fallbackData.userAnalysis.calculatedRent,
-                  rentBasedOnComparables: fallbackData.userAnalysis.rentBasedOnComparables,
-                  lastRentUpdate: fallbackData.userAnalysis.lastRentUpdate,
-                  calculatedYield: fallbackData.userAnalysis.calculatedYield,
-                  lastYieldUpdate: fallbackData.userAnalysis.lastYieldUpdate
-                })
+              // Fallback: try to load the most recent analysis
+              const recentList = await loadRecentAnalyses()
+              if (recentList.length > 0) {
+                const mostRecentId = recentList[0].analysisId
+                console.log('Falling back to most recent analysis with UID:', mostRecentId)
+                
+                const fallbackData = await getFullAnalysisData(mostRecentId)
+                if (fallbackData) {
+                  setPropertyData({
+                    ...fallbackData.propertyData,
+                    calculatedValuation: fallbackData.userAnalysis.calculatedValuation,
+                    valuationBasedOnComparables: fallbackData.userAnalysis.valuationBasedOnComparables,
+                    lastValuationUpdate: fallbackData.userAnalysis.lastValuationUpdate,
+                    calculatedRent: fallbackData.userAnalysis.calculatedRent,
+                    rentBasedOnComparables: fallbackData.userAnalysis.rentBasedOnComparables,
+                    lastRentUpdate: fallbackData.userAnalysis.lastRentUpdate,
+                    calculatedYield: fallbackData.userAnalysis.calculatedYield,
+                    lastYieldUpdate: fallbackData.userAnalysis.lastYieldUpdate
+                  })
+                }
               }
             }
           }
+          loadData()
         } else {
           console.error('No UID provided')
         }

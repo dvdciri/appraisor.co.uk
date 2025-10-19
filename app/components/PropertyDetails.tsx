@@ -3,16 +3,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { 
-  getAllPropertyLists, 
-  createPropertyList, 
-  addPropertyToList,
-  removePropertyFromList,
-  PropertyList,
   updatePropertyInStore,
   getPropertyFromStore,
   updateUserAnalysis
 } from '../../lib/persistence'
-import { getTasksForProperty } from '../../lib/tasks'
 import Toast from './Toast'
 
 interface PropertyData {
@@ -380,16 +374,6 @@ export default function PropertyDetails({
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
 
-  // List modal state
-  const [isListModalOpen, setIsListModalOpen] = useState(false)
-  const [allLists, setAllLists] = useState<PropertyList[]>([])
-  const [newListName, setNewListName] = useState('')
-  const [isCreatingList, setIsCreatingList] = useState(false)
-  const [selectedListId, setSelectedListId] = useState<string | null>(null)
-  const [listMessage, setListMessage] = useState<{type: 'success' | 'info' | 'error', text: string} | null>(null)
-  
-  // Task count state
-  const [taskCount, setTaskCount] = useState(0)
 
   // Comparables modal state
   const [isComparablesModalOpen, setIsComparablesModalOpen] = useState(false)
@@ -440,40 +424,6 @@ export default function PropertyDetails({
     return strictMatches.length
   }, [attributes.nearby_listings?.rental_listings, attributes.property_type?.value, attributes.number_of_bedrooms?.value, attributes.number_of_bathrooms?.value])
 
-  // Load lists on component mount and when modal opens
-  useEffect(() => {
-    setAllLists(getAllPropertyLists())
-    if (isListModalOpen) {
-      setListMessage(null)
-    }
-  }, [isListModalOpen])
-  
-  // Calculate how many lists contain this property
-  const listsContainingProperty = useMemo(() => {
-    if (!propertyId) return 0
-    return allLists.filter(list => list.propertyIds.includes(propertyId)).length
-  }, [allLists, propertyId])
-  
-  // Load task count for this property
-  useEffect(() => {
-    if (propertyId) {
-      const tasks = getTasksForProperty(propertyId)
-      setTaskCount(tasks.length)
-    }
-  }, [propertyId])
-  
-  // Update task count when window gains focus (to catch changes from tasks page)
-  useEffect(() => {
-    const updateTaskCount = () => {
-      if (propertyId) {
-        const tasks = getTasksForProperty(propertyId)
-        setTaskCount(tasks.length)
-      }
-    }
-    
-    window.addEventListener('focus', updateTaskCount)
-    return () => window.removeEventListener('focus', updateTaskCount)
-  }, [propertyId])
 
   // Set default nearby listings sub-tab based on available data
   useEffect(() => {
@@ -653,29 +603,29 @@ export default function PropertyDetails({
   useEffect(() => {
     if (!propertyId) return
 
-    try {
-      const propertyData = getPropertyFromStore(propertyId)
-      if (propertyData?.calculatedValuation) {
-        setCalculatedValuation(propertyData.calculatedValuation)
-        console.log('Loaded persisted valuation:', propertyData.calculatedValuation)
+    const loadPersistedData = async () => {
+      try {
+        const propertyData = await getPropertyFromStore(propertyId)
+        if (propertyData?.calculatedValuation) {
+          setCalculatedValuation(propertyData.calculatedValuation)
+          console.log('Loaded persisted valuation:', propertyData.calculatedValuation)
+        }
+        if (propertyData?.calculatedRent) {
+          setCalculatedRent(propertyData.calculatedRent)
+          console.log('Loaded persisted rent:', propertyData.calculatedRent)
+        }
+        if (propertyData?.calculatedYield) {
+          setCalculatedYield(propertyData.calculatedYield)
+          console.log('Loaded persisted yield:', propertyData.calculatedYield.toFixed(2) + '%')
+        }
+      } catch (e) {
+        console.error('Failed to load persisted data:', e)
       }
-      if (propertyData?.calculatedRent) {
-        setCalculatedRent(propertyData.calculatedRent)
-        console.log('Loaded persisted rent:', propertyData.calculatedRent)
-      }
-      if (propertyData?.calculatedYield) {
-        setCalculatedYield(propertyData.calculatedYield)
-        console.log('Loaded persisted yield:', propertyData.calculatedYield.toFixed(2) + '%')
-      }
-    } catch (e) {
-      console.error('Failed to load persisted data:', e)
     }
+
+    loadPersistedData()
   }, [propertyId])
 
-  // Check if property is in a list
-  const isPropertyInList = (list: PropertyList): boolean => {
-    return propertyId ? list.propertyIds.includes(propertyId) : false
-  }
 
 
   const openImageGallery = (images: string[], startIndex: number = 0) => {
@@ -690,85 +640,6 @@ export default function PropertyDetails({
     setCurrentImageIndex(0)
   }
 
-  const handleCreateNewList = () => {
-    if (!newListName.trim()) return
-    
-    try {
-      const newList = createPropertyList(newListName.trim())
-      setAllLists(getAllPropertyLists())
-      setNewListName('')
-      setIsCreatingList(false)
-      
-      // Automatically select the newly created list
-      setSelectedListId(newList.id)
-    } catch (error) {
-      console.error('Failed to create list:', error)
-    }
-  }
-
-  const handleTogglePropertyInList = (listId: string) => {
-    if (!propertyId) return
-    
-    const list = allLists.find(l => l.id === listId)
-    if (!list) return
-    
-    const isInList = isPropertyInList(list)
-    
-    try {
-      if (isInList) {
-        // Remove from list
-        const success = removePropertyFromList(listId, propertyId)
-        if (success) {
-          setListMessage({
-            type: 'success',
-            text: `Property removed from "${list.name}"`
-          })
-          // Reload lists to update UI
-          setAllLists(getAllPropertyLists())
-        } else {
-          setListMessage({
-            type: 'error',
-            text: `Failed to remove property from "${list.name}"`
-          })
-        }
-      } else {
-        // Add to list
-        const success = addPropertyToList(listId, propertyId)
-        if (success) {
-          setListMessage({
-            type: 'success',
-            text: `Property added to "${list.name}"`
-          })
-          // Reload lists to update UI
-          setAllLists(getAllPropertyLists())
-        } else {
-          setListMessage({
-            type: 'info',
-            text: `Property is already in "${list.name}"`
-          })
-        }
-      }
-      
-      // Clear message after 3 seconds
-      setTimeout(() => {
-        setListMessage(null)
-      }, 3000)
-    } catch (error) {
-      console.error('Failed to update property in list:', error)
-      setListMessage({
-        type: 'error',
-        text: 'Failed to update list'
-      })
-    }
-  }
-
-  const closeListModal = () => {
-    setIsListModalOpen(false)
-    setIsCreatingList(false)
-    setNewListName('')
-    setSelectedListId(null)
-    setListMessage(null)
-  }
 
   const toggleComparable = (transactionId: string) => {
     if (onComparablesChange) {
@@ -868,14 +739,6 @@ export default function PropertyDetails({
 
   return (
     <>
-      {/* Toast Notification */}
-      {listMessage && (
-        <Toast
-          message={listMessage.text}
-          type={listMessage.type}
-          onClose={() => setListMessage(null)}
-        />
-      )}
 
     <div className="space-y-8">
 
@@ -898,52 +761,6 @@ export default function PropertyDetails({
             <span className="sm:hidden">Analyse</span>
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => setIsListModalOpen(true)}
-          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-            listsContainingProperty > 0 
-              ? 'bg-green-700 hover:bg-green-600 text-white border-green-600' 
-              : 'bg-gray-800 hover:bg-gray-700 text-white border-gray-600'
-          }`}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {listsContainingProperty > 0 ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            )}
-          </svg>
-          <span className="hidden sm:inline">
-            {listsContainingProperty > 0 
-              ? `In ${listsContainingProperty} ${listsContainingProperty === 1 ? 'List' : 'Lists'}` 
-              : 'Add to List'}
-          </span>
-          <span className="sm:hidden">
-            {listsContainingProperty > 0 ? `${listsContainingProperty}` : 'Add'}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => router.push(`/tasks?property=${propertyId}&ref=details&detailsId=${propertyId}`)}
-          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-            taskCount > 0 
-              ? 'bg-blue-700 hover:bg-blue-600 text-white border-blue-600' 
-              : 'bg-gray-800 hover:bg-gray-700 text-white border-gray-600'
-          }`}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-          </svg>
-          <span className="hidden sm:inline">
-            {taskCount > 0 
-              ? `${taskCount} ${taskCount === 1 ? 'Task' : 'Tasks'}` 
-              : 'View Tasks'}
-          </span>
-          <span className="sm:hidden">
-            {taskCount > 0 ? `${taskCount}` : 'Tasks'}
-          </span>
-        </button>
         {onNotesClick && (
           <button
             type="button"
@@ -2260,127 +2077,6 @@ export default function PropertyDetails({
         </div>
       )}
 
-      {/* List Selection Modal */}
-      {isListModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-lg max-w-lg w-full max-h-[85vh] overflow-y-auto border border-gray-600">
-            {/* Header */}
-            <div className="sticky top-0 bg-gray-800 border-b border-gray-600 p-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white">Add to List</h3>
-                <button
-                  onClick={closeListModal}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 space-y-4">
-              {/* Create New List Section */}
-              {!isCreatingList ? (
-                <button
-                  onClick={() => setIsCreatingList(true)}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Create New List
-                </button>
-              ) : (
-                <div className="bg-gray-700 rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-white font-medium">New List</h4>
-                    <button
-                      onClick={() => {
-                        setIsCreatingList(false)
-                        setNewListName('')
-                      }}
-                      className="text-gray-400 hover:text-white"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={newListName}
-                    onChange={(e) => setNewListName(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handleCreateNewList()
-                      }
-                    }}
-                    placeholder="Enter list name..."
-                    className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    autoFocus
-                  />
-                  <button
-                    onClick={handleCreateNewList}
-                    disabled={!newListName.trim()}
-                    className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-md transition-colors font-medium"
-                  >
-                    Create
-                  </button>
-                </div>
-              )}
-
-              {/* Existing Lists */}
-              {allLists.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-gray-400 uppercase">Existing Lists</h4>
-                  <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                    {allLists.map((list) => {
-                      const isInList = isPropertyInList(list)
-                      return (
-                        <button
-                          key={list.id}
-                          onClick={() => handleTogglePropertyInList(list.id)}
-                          className={`w-full text-left px-3 py-2 rounded-md transition-colors border ${
-                            isInList
-                              ? 'bg-green-900 border-green-600 text-white hover:bg-green-800'
-                              : 'bg-gray-700 border-gray-600 hover:bg-gray-600 text-white'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{list.name}</p>
-                              <p className={`text-xs ${isInList ? 'text-green-300' : 'text-gray-400'}`}>
-                                {list.propertyIds.length} {list.propertyIds.length === 1 ? 'property' : 'properties'}
-                              </p>
-                            </div>
-                            {isInList ? (
-                              <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                              </svg>
-                            ) : (
-                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                              </svg>
-                            )}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {allLists.length === 0 && !isCreatingList && (
-                <div className="text-center py-8">
-                  <p className="text-gray-400 mb-4">No lists yet. Create your first list to get started!</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Comparables Modal */}
       {isComparablesModalOpen && (

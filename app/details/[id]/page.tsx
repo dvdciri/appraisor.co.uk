@@ -72,7 +72,7 @@ export default function PropertyDetailsPage() {
   // Load property data from localStorage based on ID - NO API CALLS
   useEffect(() => {
     // Dynamic import to avoid SSR issues
-    import('../../../lib/persistence').then(({ getFullAnalysisData, loadRecentAnalyses, autoMigrate, loadCalculatorData }) => {
+    import('../../../lib/persistence').then(async ({ getFullAnalysisData, loadRecentAnalyses, autoMigrate, loadCalculatorData }) => {
       try {
         // Run migration first
         autoMigrate()
@@ -81,7 +81,7 @@ export default function PropertyDetailsPage() {
         
         if (params.id) {
           // Load from new storage structure
-          const fullData = getFullAnalysisData(params.id as string)
+          const fullData = await getFullAnalysisData(params.id as string)
           
           if (fullData) {
             console.log('Loaded property data from new storage structure')
@@ -101,7 +101,7 @@ export default function PropertyDetailsPage() {
             setFilters(fullData.userAnalysis.filters)
             
             // Load calculator data and extract notes
-            const calculatorData = loadCalculatorData(params.id as string)
+            const calculatorData = await loadCalculatorData(params.id as string)
             if (calculatorData?.notes) {
               setNotes(calculatorData.notes)
             }
@@ -109,12 +109,12 @@ export default function PropertyDetailsPage() {
             console.error('No analysis found for UID:', params.id)
             
             // Fallback: try to load the most recent analysis
-            const recentList = loadRecentAnalyses()
+            const recentList = await loadRecentAnalyses()
             if (recentList.length > 0) {
               const mostRecentId = recentList[0].analysisId
               console.log('Falling back to most recent analysis with UID:', mostRecentId)
               
-              const fallbackData = getFullAnalysisData(mostRecentId)
+              const fallbackData = await getFullAnalysisData(mostRecentId)
               if (fallbackData) {
                 setPropertyData({
                   ...fallbackData.propertyData,
@@ -131,7 +131,7 @@ export default function PropertyDetailsPage() {
                 setFilters(fallbackData.userAnalysis.filters)
                 
                 // Load calculator data and extract notes
-                const calculatorData = loadCalculatorData(mostRecentId)
+                const calculatorData = await loadCalculatorData(mostRecentId)
                 if (calculatorData?.notes) {
                   setNotes(calculatorData.notes)
                 }
@@ -211,10 +211,10 @@ export default function PropertyDetailsPage() {
       return
     }
 
-    import('../../../lib/persistence').then(({ loadCalculatorData, saveCalculatorData }) => {
-      const currentData = loadCalculatorData(params.id as string)
+    import('../../../lib/persistence').then(async ({ loadCalculatorData, saveCalculatorData }) => {
+      const currentData = await loadCalculatorData(params.id as string)
       if (currentData) {
-        saveCalculatorData(params.id as string, { ...currentData, notes })
+        await saveCalculatorData(params.id as string, { ...currentData, notes })
       }
     })
   }, [notes, params.id])

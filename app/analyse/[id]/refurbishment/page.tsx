@@ -78,20 +78,21 @@ export default function RefurbishmentEstimatorPage() {
 
   // Load property data
   useEffect(() => {
-    try {
-      if (params.id) {
-        const fullData = getFullAnalysisData(params.id as string)
-        if (fullData) {
-          const address = fullData.propertyData.data.attributes.address.street_group_format.address_lines
-          const postcode = fullData.propertyData.data.attributes.address.street_group_format.postcode
-          setPropertyAddress(address)
-          setPropertyPostcode(postcode)
-          
-          // Load property details
-          const attrs = fullData.propertyData.data.attributes
-          if (attrs.number_of_bedrooms?.value) {
-            setNumBeds(attrs.number_of_bedrooms.value.toString())
-          }
+    const loadData = async () => {
+      try {
+        if (params.id) {
+          const fullData = await getFullAnalysisData(params.id as string)
+          if (fullData) {
+            const address = fullData.propertyData.data.attributes.address.street_group_format.address_lines
+            const postcode = fullData.propertyData.data.attributes.address.street_group_format.postcode
+            setPropertyAddress(address)
+            setPropertyPostcode(postcode)
+            
+            // Load property details
+            const attrs = fullData.propertyData.data.attributes
+            if (attrs.number_of_bedrooms?.value) {
+              setNumBeds(attrs.number_of_bedrooms.value.toString())
+            }
           if (attrs.number_of_bathrooms?.value) {
             setNumBaths(attrs.number_of_bathrooms.value.toString())
           }
@@ -108,11 +109,13 @@ export default function RefurbishmentEstimatorPage() {
           console.error('No property data found')
         }
       }
-    } catch (e) {
-      console.error('Failed to load property data', e)
-    } finally {
-      setLoading(false)
+      } catch (e) {
+        console.error('Failed to load property data', e)
+      } finally {
+        setLoading(false)
+      }
     }
+    loadData()
   }, [params.id])
 
   // Cleanup object URLs on unmount
@@ -388,11 +391,11 @@ export default function RefurbishmentEstimatorPage() {
     }
   }
 
-  const confirmApplyToCalculator = () => {
+  const confirmApplyToCalculator = async () => {
     if (!estimationResult || !params.id) return
 
     // Load existing calculator data
-    const existingData = loadCalculatorData(params.id as string)
+    const existingData = await loadCalculatorData(params.id as string)
     
     // Convert estimation items to calculator refurb items (starting from ID 1)
     // Use selected level costs
