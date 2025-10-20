@@ -260,4 +260,50 @@ export async function getGenericProperty(uprn: string): Promise<GenericPropertyD
   }
 }
 
+// Get full analysis data (combines property data + user analysis) - now async
+export async function getFullAnalysisData(analysisId: string): Promise<{ propertyData: any, userAnalysis: any } | null> {
+  try {
+    // For backward compatibility, return null since we removed user analysis functionality
+    // This allows other pages to continue working without breaking
+    console.warn('getFullAnalysisData is deprecated - user analysis functionality has been removed')
+    return null
+  } catch (error) {
+    console.error('Failed to fetch full analysis data from database:', error)
+    return null
+  }
+}
+
+// Recent analyses list - deprecated but kept for backward compatibility
+export async function loadRecentAnalyses(): Promise<any[]> {
+  try {
+    // For backward compatibility, return empty array since we removed recent analyses functionality
+    console.warn('loadRecentAnalyses is deprecated - recent analyses functionality has been removed')
+    return []
+  } catch (error) {
+    console.error('Failed to fetch recent analyses from database:', error)
+    return []
+  }
+}
+
+// User analysis functions - deprecated but kept for backward compatibility
+export async function getUserAnalysis(analysisId: string): Promise<any | null> {
+  try {
+    // For backward compatibility, return null since we removed user analysis functionality
+    console.warn('getUserAnalysis is deprecated - user analysis functionality has been removed')
+    return null
+  } catch (error) {
+    console.error('Failed to fetch analysis from database:', error)
+    return null
+  }
+}
+
+export async function updateUserAnalysis(analysisId: string, updates: any): Promise<void> {
+  try {
+    // For backward compatibility, do nothing since we removed user analysis functionality
+    console.warn('updateUserAnalysis is deprecated - user analysis functionality has been removed')
+  } catch (error) {
+    console.error('Failed to update analysis in database:', error)
+  }
+}
+
 

@@ -59,14 +59,14 @@ async function fetchRealPropertyDetails(address: string, postcode: string): Prom
   };
 
   console.log('🔍 Street API Request Details:');
-  console.log('  URL:', 'https://api.data.street.co.uk/street-data-api/v2/properties/addresses?tier=premium');
+  console.log('  URL:', 'https://api.data.street.co.uk/street-data-api/v2/properties/addresses?tier=core');
   console.log('  Method: POST');
   console.log('  Address:', address);
   console.log('  Postcode:', postcode);
   console.log('  API Key present:', !!process.env.STREET_API_KEY);
   console.log('  Request payload:', JSON.stringify(requestPayload, null, 2));
 
-  const response = await fetch('https://api.data.street.co.uk/street-data-api/v2/properties/addresses?tier=premium', {
+  const response = await fetch('https://api.data.street.co.uk/street-data-api/v2/properties/addresses?tier=core', {
       method: 'POST',
       headers: {
           'Content-Type': 'application/json',

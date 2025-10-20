@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from './components/Header'
 import Toast from './components/Toast'
+import AddressAutocomplete from './components/AddressAutocomplete'
 import { 
   saveCalculatorData, 
   type CalculatorData,
@@ -57,10 +58,12 @@ interface PropertyData {
 
 export default function Home() {
   const router = useRouter()
-  const [address, setAddress] = useState('')
-  const [postcode, setPostcode] = useState('')
+  const [fullAddress, setFullAddress] = useState('')
+  const [selectedAddress, setSelectedAddress] = useState('')
+  const [selectedPostcode, setSelectedPostcode] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
 
   const saveToRecentAnalyses = async (data: any, searchAddress: string, searchPostcode: string) => {
@@ -144,12 +147,30 @@ export default function Home() {
     return analysisId
   }
 
+  const handleAddressSelect = (address: string, postcode: string) => {
+    setSelectedAddress(address)
+    setSelectedPostcode(postcode)
+  }
+
+  const handleAddressChange = (value: string) => {
+    setFullAddress(value)
+    // Clear selected address if user types manually
+    if (!value.includes(selectedAddress) || !value.includes(selectedPostcode)) {
+      setSelectedAddress('')
+      setSelectedPostcode('')
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!address || !postcode) return
+    if (!selectedAddress || !selectedPostcode) {
+      setErrorMessage('Please select an address from the suggestions')
+      return
+    }
 
     setLoading(true)
     setErrorMessage(null)
+    setSuccessMessage(null)
     
     try {
       const response = await fetch('/api/property', {
@@ -157,7 +178,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ address, postcode }),
+        body: JSON.stringify({ address: selectedAddress, postcode: selectedPostcode }),
       })
       
       if (!response.ok) {
@@ -177,12 +198,14 @@ export default function Home() {
       // Extract UPRN for property data storage
       const uprn = extractUPRN(data)
       
-      // Save to recent analyses and get the analysis ID
-      const analysisId = await saveToRecentAnalyses(data, address, postcode)
-      
-      // Navigate to the new analysis details page
-      console.log('Navigating to details page with UID:', analysisId)
-      router.push(`/details/${analysisId}`)
+      if (uprn) {
+        // Save property data to database
+        await saveGenericProperty(uprn, data)
+        setSuccessMessage(`Property data saved successfully! UPRN: ${uprn}`)
+        console.log('Property data saved with UPRN:', uprn)
+      } else {
+        setErrorMessage('Failed to extract property identifier from the data.')
+      }
     } catch (error) {
       console.error('Error fetching property data:', error)
       setErrorMessage('An error occurred while searching for the property. Please try again.')
@@ -201,6 +224,15 @@ export default function Home() {
           onClose={() => setErrorMessage(null)}
         />
       )}
+
+      {/* Success Toast */}
+      {successMessage && (
+        <Toast
+          message={successMessage}
+          type="success"
+          onClose={() => setSuccessMessage(null)}
+        />
+      )}
       
       <Header />
       <div className="container mx-auto px-4 py-8">
@@ -210,35 +242,16 @@ export default function Home() {
               {/* Search Form */}
               <div className="bg-gray-800 rounded-lg p-8 animate-enter-subtle">
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="address" className="block text-sm font-medium text-gray-300 mb-2">
-                        Address
-                      </label>
-                      <input
-                        type="text"
-                        id="address"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Enter property address"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="postcode" className="block text-sm font-medium text-gray-300 mb-2">
-                        Postcode
-                      </label>
-                      <input
-                        type="text"
-                        id="postcode"
-                        value={postcode}
-                        onChange={(e) => setPostcode(e.target.value)}
-                        className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Enter postcode"
-                        required
-                      />
-                    </div>
+                  <div>
+                    <label htmlFor="address" className="block text-sm font-medium text-gray-300 mb-2">
+                      Property Address
+                    </label>
+                    <AddressAutocomplete
+                      onAddressSelect={handleAddressSelect}
+                      onChange={handleAddressChange}
+                      value={fullAddress}
+                      placeholder="Enter property address"
+                    />
                   </div>
                   <button
                     type="submit"
