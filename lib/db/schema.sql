@@ -12,48 +12,19 @@ CREATE TABLE IF NOT EXISTS properties (
     user_id UUID NULL -- For future multi-user support
 );
 
--- User analyses table: User-specific analysis data
-CREATE TABLE IF NOT EXISTS user_analyses (
-    analysis_id VARCHAR(100) PRIMARY KEY,
-    uprn VARCHAR(50) NOT NULL,
-    search_address TEXT,
-    search_postcode VARCHAR(20),
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    user_id UUID NULL, -- For future multi-user support
-    FOREIGN KEY (uprn) REFERENCES properties(uprn) ON DELETE CASCADE
-);
-
 -- Calculator data table: Financial calculations per analysis
 CREATE TABLE IF NOT EXISTS calculator_data (
     analysis_id VARCHAR(100) PRIMARY KEY,
     data JSONB NOT NULL,
     last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    user_id UUID NULL, -- For future multi-user support
-    FOREIGN KEY (analysis_id) REFERENCES user_analyses(analysis_id) ON DELETE CASCADE
-);
-
--- Recent analyses table: Ordered list of recent analyses for quick access
-CREATE TABLE IF NOT EXISTS recent_analyses (
-    id SERIAL PRIMARY KEY,
-    analysis_id VARCHAR(100) NOT NULL,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    user_id UUID NULL, -- For future multi-user support
-    FOREIGN KEY (analysis_id) REFERENCES user_analyses(analysis_id) ON DELETE CASCADE,
-    UNIQUE(analysis_id, user_id) -- Prevent duplicates per user
+    user_id UUID NULL -- For future multi-user support
 );
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_properties_user_id ON properties(user_id);
 CREATE INDEX IF NOT EXISTS idx_properties_last_fetched ON properties(last_fetched);
-CREATE INDEX IF NOT EXISTS idx_user_analyses_uprn ON user_analyses(uprn);
-CREATE INDEX IF NOT EXISTS idx_user_analyses_user_id ON user_analyses(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_analyses_timestamp ON user_analyses(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_calculator_data_user_id ON calculator_data(user_id);
-CREATE INDEX IF NOT EXISTS idx_recent_analyses_user_id ON recent_analyses(user_id);
-CREATE INDEX IF NOT EXISTS idx_recent_analyses_timestamp ON recent_analyses(timestamp DESC);
 
 -- Function to update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

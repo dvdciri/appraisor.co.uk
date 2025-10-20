@@ -12,54 +12,22 @@ CREATE TABLE IF NOT EXISTS properties (
     last_fetched BIGINT NOT NULL,
     fetched_count INT DEFAULT 1,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS user_analyses (
-    analysis_id VARCHAR(255) PRIMARY KEY,
-    uprn VARCHAR(255) NOT NULL REFERENCES properties(uprn) ON DELETE CASCADE,
-    search_address TEXT,
-    search_postcode VARCHAR(20),
-    timestamp BIGINT NOT NULL,
-    selected_comparables JSONB DEFAULT '[]'::jsonb,
-    calculated_valuation NUMERIC,
-    valuation_based_on_comparables INT,
-    last_valuation_update BIGINT,
-    calculated_rent NUMERIC,
-    rent_based_on_comparables INT,
-    last_rent_update BIGINT,
-    calculated_yield NUMERIC,
-    last_yield_update BIGINT,
-    filters JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    user_id VARCHAR(255)
 );
 
 CREATE TABLE IF NOT EXISTS calculator_data (
-    analysis_id VARCHAR(255) PRIMARY KEY REFERENCES user_analyses(analysis_id) ON DELETE CASCADE,
+    analysis_id VARCHAR(255) PRIMARY KEY,
     data JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    user_id VARCHAR(255)
 );
-
-CREATE TABLE IF NOT EXISTS recent_analyses (
-    analysis_id VARCHAR(255) PRIMARY KEY REFERENCES user_analyses(analysis_id) ON DELETE CASCADE,
-    timestamp BIGINT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Add user_id column to tables for future multi-user support
-ALTER TABLE properties ADD COLUMN IF NOT EXISTS user_id VARCHAR(255);
-ALTER TABLE user_analyses ADD COLUMN IF NOT EXISTS user_id VARCHAR(255);
-ALTER TABLE calculator_data ADD COLUMN IF NOT EXISTS user_id VARCHAR(255);
-ALTER TABLE recent_analyses ADD COLUMN IF NOT EXISTS user_id VARCHAR(255);
 
 -- Create indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_properties_uprn ON properties(uprn);
-CREATE INDEX IF NOT EXISTS idx_user_analyses_uprn ON user_analyses(uprn);
-CREATE INDEX IF NOT EXISTS idx_user_analyses_timestamp ON user_analyses(timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_recent_analyses_timestamp ON recent_analyses(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_properties_user_id ON properties(user_id);
+CREATE INDEX IF NOT EXISTS idx_calculator_data_user_id ON calculator_data(user_id);
     `
     
     // Split schema into individual statements and execute them
@@ -89,10 +57,10 @@ export async function checkDatabaseHealth(): Promise<boolean> {
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
-      AND table_name IN ('properties', 'user_analyses', 'calculator_data', 'recent_analyses')
+      AND table_name IN ('properties', 'calculator_data')
     `)
     
-    const expectedTables = ['properties', 'user_analyses', 'calculator_data', 'recent_analyses']
+    const expectedTables = ['properties', 'calculator_data']
     const existingTables = result.rows.map((row: any) => row.table_name)
     
     const allTablesExist = expectedTables.every(table => existingTables.includes(table))

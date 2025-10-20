@@ -52,27 +52,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // First, check if the analysis exists, if not create a dummy one
-    const analysisCheck = await query(
-      'SELECT analysis_id FROM user_analyses WHERE analysis_id = $1',
-      [analysisId]
-    )
-
-    if (analysisCheck.rows.length === 0) {
-      // First ensure the property exists
-      await query(`
-        INSERT INTO properties (uprn, data, last_fetched, fetched_count)
-        VALUES ('temp-uprn', '{}', $1, 1)
-        ON CONFLICT (uprn) DO NOTHING
-      `, [Date.now()])
-      
-      // Create a dummy analysis entry to satisfy foreign key constraint
-      await query(`
-        INSERT INTO user_analyses (analysis_id, uprn, timestamp, search_address, search_postcode)
-        VALUES ($1, 'temp-uprn', $2, 'Temporary Analysis', '')
-        ON CONFLICT (analysis_id) DO NOTHING
-      `, [analysisId, Date.now()])
-    }
+    // No need to check for analysis existence since calculator_data is now independent
 
     // Use upsert (INSERT ... ON CONFLICT UPDATE)
     const result = await query(`
@@ -92,6 +72,34 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error saving calculator data:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE - delete calculator data
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const analysisId = searchParams.get('id')
+
+    if (!analysisId) {
+      return NextResponse.json(
+        { error: 'Analysis ID is required' },
+        { status: 400 }
+      )
+    }
+
+    await query(
+      'DELETE FROM calculator_data WHERE analysis_id = $1',
+      [analysisId]
+    )
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting calculator data:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
