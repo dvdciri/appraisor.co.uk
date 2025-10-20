@@ -164,14 +164,14 @@ export default function PropertyDetails({ propertyData, propertyId, onBack }: Pr
   const mapEmbedUrl = useMemo(() => {
     if (!attributes.location) return null
     const { latitude, longitude } = attributes.location
-    return `https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&center=${latitude},${longitude}&zoom=15&maptype=roadmap`
+    return `https://www.google.com/maps/embed/v1/view?key=${process.env.MAPS_API_KEY}&center=${latitude},${longitude}&zoom=15&maptype=roadmap`
   }, [attributes.location])
 
   // Generate Street View image URL
   const streetViewImageUrl = useMemo(() => {
     if (!attributes.location) return null
     const { latitude, longitude } = attributes.location
-    return `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${latitude},${longitude}&fov=90&heading=0&pitch=0&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+    return `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${latitude},${longitude}&fov=90&heading=0&pitch=0&key=${process.env.MAPS_API_KEY}`
   }, [attributes.location])
 
   // REMOVED: Load persisted valuation and rent functionality

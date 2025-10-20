@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (!process.env.MAPS_API_KEY) {
-      console.error('MAPS_API_KEY not found. Please configure your API key.')
+    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+      console.error('NEXT_PUBLIC_GOOGLE_MAPS_API_KEY not found. Please configure your API key.')
       return NextResponse.json(
         { error: 'API key not configured' },
         { status: 500 }
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const response = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
       method: 'GET',
       headers: {
-        'X-Goog-Api-Key': process.env.MAPS_API_KEY,
+        'X-Goog-Api-Key': process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
         'X-Goog-FieldMask': 'addressComponents',
       },
     })

@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 
-type Section = 'property-details' | 'market-analysis' | 'sold-comparables' | 'investment-calculator' | 'ai-refurbishment'
+type Section = 'property-details' | 'market-analysis' | 'sold-comparables' | 'investment-calculator' | 'ai-refurbishment' | 'risk-assessment'
 
 const sections = [
   { id: 'property-details' as Section, label: 'Property Details', icon: '🏠' },
+  { id: 'risk-assessment' as Section, label: 'Risk Assessment', icon: '⚠️' },
   { id: 'market-analysis' as Section, label: 'Market Analysis', icon: '📊' },
   { id: 'sold-comparables' as Section, label: 'Sold Comparables', icon: '🏘️' },
   { id: 'investment-calculator' as Section, label: 'Investment Calculator', icon: '💰' },
@@ -15,104 +16,102 @@ const sections = [
 
 const subsections = {
   'property-details': [
-    { id: 'basic-info', label: 'Basic Information', icon: '📋' },
-    { id: 'location', label: 'Location & Address', icon: '📍' },
-    { id: 'specifications', label: 'Specifications', icon: '📐' },
-    { id: 'valuation', label: 'Valuation Data', icon: '💰' },
-    { id: 'history', label: 'Property History', icon: '📜' },
-  ],
-  'market-analysis': [
-    { id: 'price-trends', label: 'Price Trends', icon: '📈' },
-    { id: 'neighborhood-data', label: 'Neighborhood Data', icon: '🏘️' },
-    { id: 'market-forecast', label: 'Market Forecast', icon: '🔮' },
-    { id: 'demographics', label: 'Demographics', icon: '👥' },
-  ],
-  'sold-comparables': [
-    { id: 'recent-sales', label: 'Recent Sales', icon: '🏠' },
-    { id: 'price-per-sqft', label: 'Price per Sq Ft', icon: '📊' },
-    { id: 'market-comparison', label: 'Market Comparison', icon: '⚖️' },
-    { id: 'sale-history', label: 'Sale History', icon: '📜' },
-  ],
-  'investment-calculator': [
-    { id: 'roi-calculator', label: 'ROI Calculator', icon: '📈' },
-    { id: 'rental-yield', label: 'Rental Yield', icon: '🏠' },
-    { id: 'mortgage-calculator', label: 'Mortgage Calculator', icon: '🏦' },
-    { id: 'cash-flow', label: 'Cash Flow Analysis', icon: '💰' },
-  ],
-  'ai-refurbishment': [
-    { id: 'cost-estimation', label: 'Cost Estimation', icon: '🔨' },
-    { id: 'room-analysis', label: 'Room Analysis', icon: '🏠' },
-    { id: 'material-suggestions', label: 'Material Suggestions', icon: '🧱' },
-    { id: 'timeline-planning', label: 'Timeline Planning', icon: '📅' },
+    { id: 'ownership', label: 'Ownership & Occupancy', icon: '🏠', description: 'Tenure type, ownership status, occupancy, and legal information' },
+    { id: 'construction', label: 'Construction Details', icon: '🏗️', description: 'Building materials, construction age, and structural details' },
+    { id: 'plot', label: 'Plot & Outdoor Space', icon: '🌳', description: 'Land area, garden space, and outdoor amenities' },
+    { id: 'utilities', label: 'Utilities & Services', icon: '⚡', description: 'Water, drainage, heating, and utility connections' },
+    { id: 'energy', label: 'EPC Rating', icon: '⚡', description: 'Energy Performance Certificate ratings and efficiency details' },
   ],
 }
 
-const loremContent = {
-  'property-details': {
-    title: 'Property Details',
-    content: `Comprehensive property information including basic details, location data, specifications, valuation information, and historical records. This section provides a complete overview of the property's characteristics, legal status, and market position.
 
-Key features include:
-• Property specifications and dimensions
-• Location and address verification
-• Valuation data and market estimates
-• Historical transaction records
-• Legal and regulatory information
-
-This data is essential for making informed investment decisions and understanding the property's potential value and risks.`
-  },
-  'market-analysis': {
-    title: 'Market Analysis',
-    content: `In-depth market analysis providing insights into local property trends, neighborhood dynamics, and future market predictions. This section helps investors understand the broader market context and make data-driven decisions.
-
-Analysis includes:
-• Price trend analysis and forecasting
-• Neighborhood demographic data
-• Market supply and demand indicators
-• Economic factors affecting property values
-• Future development plans and their impact
-
-This comprehensive market intelligence helps identify opportunities and assess investment risks in the current market environment.`
-  },
-  'sold-comparables': {
-    title: 'Sold Comparables',
-    content: `Detailed analysis of recently sold properties in the area to establish accurate market valuations and identify pricing trends. This section provides crucial data for property valuation and investment analysis.
-
-Comparable data includes:
-• Recent sales within 0.5 miles
-• Price per square foot analysis
-• Market comparison metrics
-• Sale history and price progression
-• Property feature comparisons
-
-This data is essential for accurate property valuation and understanding how the subject property compares to similar properties in the market.`
-  },
-  'investment-calculator': {
-    title: 'Investment Calculator',
-    content: `Advanced financial calculators to analyze investment potential, calculate returns, and assess cash flow projections. This section provides the tools needed to make informed investment decisions.
-
-Calculator tools include:
-• ROI and yield calculations
-• Rental income analysis
-• Mortgage payment calculations
-• Cash flow projections
-• Tax implications and deductions
-
-These tools help investors evaluate the financial viability of property investments and compare different investment opportunities.`
-  },
-  'ai-refurbishment': {
-    title: 'AI Refurbishment Estimator',
-    content: `AI-powered refurbishment cost estimation and planning tools that provide accurate cost projections and renovation recommendations. This section helps investors plan and budget for property improvements.
-
-AI features include:
-• Automated cost estimation by room
-• Material and labor cost analysis
-• Timeline planning and scheduling
-• Quality vs. cost optimization
-• Market-specific pricing adjustments
-
-This advanced AI system provides detailed refurbishment plans and cost estimates to help maximize property value and investment returns.`
+interface PropertyData {
+  uprn: string
+  data: {
+    data: {
+      attributes: any
+    }
   }
+  lastFetched: string
+  fetchedCount: number
+}
+
+// Plot Boundary Visualization Component
+const PlotBoundaryVisualization = ({ coordinates }: { coordinates: any }) => {
+  if (!coordinates || !Array.isArray(coordinates) || coordinates.length === 0) {
+    return (
+      <div className="text-center text-gray-400">
+        <div className="text-2xl mb-2">📐</div>
+        <div className="text-sm">No boundary data available</div>
+      </div>
+    )
+  }
+
+  // Get the first polygon (outer ring)
+  const polygon = coordinates[0]
+  if (!polygon || polygon.length < 3) {
+    return (
+      <div className="text-center text-gray-400">
+        <div className="text-2xl mb-2">📐</div>
+        <div className="text-sm">Invalid boundary data</div>
+      </div>
+    )
+  }
+
+  // Calculate bounds to normalize coordinates
+  const lats = polygon.map((coord: number[]) => coord[1])
+  const lngs = polygon.map((coord: number[]) => coord[0])
+  const minLat = Math.min(...lats)
+  const maxLat = Math.max(...lats)
+  const minLng = Math.min(...lngs)
+  const maxLng = Math.max(...lngs)
+
+  // Add some padding
+  const latPadding = (maxLat - minLat) * 0.1
+  const lngPadding = (maxLng - minLng) * 0.1
+
+  // Normalize coordinates to SVG viewBox (0,0,100,100)
+  const normalizedCoords = polygon.map((coord: number[]) => {
+    const x = ((coord[0] - (minLng - lngPadding)) / ((maxLng + lngPadding) - (minLng - lngPadding))) * 100
+    const y = ((coord[1] - (minLat - latPadding)) / ((maxLat + latPadding) - (minLat - latPadding))) * 100
+    return [x, y]
+  })
+
+  // Create SVG path
+  const pathData = normalizedCoords.map((coord: number[], index: number) => 
+    `${index === 0 ? 'M' : 'L'} ${coord[0]} ${coord[1]}`
+  ).join(' ') + ' Z'
+
+  return (
+    <div className="w-full h-full flex items-center justify-center">
+      <svg
+        viewBox="0 0 100 100"
+        className="w-full h-full"
+        style={{ maxWidth: '400px', maxHeight: '300px' }}
+      >
+        {/* Background */}
+        <rect width="100" height="100" fill="rgba(55, 65, 81, 0.3)" />
+        
+        {/* Plot boundary */}
+        <path
+          d={pathData}
+          fill="rgba(139, 92, 246, 0.2)"
+          stroke="rgba(139, 92, 246, 0.8)"
+          strokeWidth="0.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        
+        {/* Center point */}
+        <circle
+          cx="50"
+          cy="50"
+          r="1"
+          fill="rgba(255, 255, 255, 0.8)"
+        />
+      </svg>
+    </div>
+  )
 }
 
 export default function DashboardV1() {
@@ -122,11 +121,92 @@ export default function DashboardV1() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [rightPanelOpen, setRightPanelOpen] = useState(false)
   const [activeSubsection, setActiveSubsection] = useState<string | null>(null)
+  const [propertyData, setPropertyData] = useState<PropertyData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const uprn = params.uprn as string
 
+  // Helper functions to safely extract property data
+  const getPropertyValue = (path: string, fallback: string = 'N/A') => {
+    if (!propertyData?.data?.data?.attributes) return fallback
+    const keys = path.split('.')
+    let value = propertyData.data.data.attributes
+    for (const key of keys) {
+      value = value?.[key]
+      if (value === undefined || value === null) return fallback
+    }
+    return value
+  }
+
+  const formatArea = (squareMeters: number | string) => {
+    const meters = typeof squareMeters === 'string' ? parseFloat(squareMeters) : squareMeters
+    if (isNaN(meters)) return 'N/A'
+    const squareFeet = Math.round(meters * 10.764)
+    return `${meters.toLocaleString()}m² (${squareFeet.toLocaleString()}ft²)`
+  }
+
+  // Fetch property data on mount
+  useEffect(() => {
+    const fetchPropertyData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const response = await fetch(`/api/db/properties?uprn=${uprn}`)
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch property data: ${response.statusText}`)
+        }
+        
+        const data = await response.json()
+        setPropertyData(data)
+      } catch (err) {
+        console.error('Error fetching property data:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load property data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (uprn) {
+      fetchPropertyData()
+    }
+  }, [uprn])
+
+  const hasSubsectionData = (subsectionId: string) => {
+    switch(subsectionId) {
+      case 'ownership': 
+        return getPropertyValue('tenure.tenure_type') !== 'N/A' || 
+               getPropertyValue('ownership.company_owned') !== 'N/A' || 
+               getPropertyValue('ownership.overseas_owned') !== 'N/A' || 
+               getPropertyValue('ownership.social_housing') !== 'N/A' ||
+               getPropertyValue('occupancy') !== 'N/A'
+      case 'construction': 
+        return getPropertyValue('construction_materials.walls') !== 'N/A' || 
+               getPropertyValue('construction_materials.roof') !== 'N/A' || 
+               getPropertyValue('construction_materials.windows') !== 'N/A' || 
+               getPropertyValue('listed_buildings_on_plot') !== 'N/A'
+      case 'plot': 
+        return getPropertyValue('plot.total_plot_area_square_metres') !== 'N/A' || 
+               getPropertyValue('outdoor_space.type') !== 'N/A' || 
+               getPropertyValue('outdoor_space.area_square_metres') !== 'N/A'
+      case 'utilities': 
+        return getPropertyValue('utilities.water') !== 'N/A' || 
+               getPropertyValue('utilities.drainage') !== 'N/A' || 
+               getPropertyValue('utilities.heating') !== 'N/A'
+      case 'energy': 
+        return getPropertyValue('energy_performance.current_energy_rating') !== 'N/A' || 
+               getPropertyValue('energy_performance.potential_energy_rating') !== 'N/A' ||
+               getPropertyValue('energy_performance.energy_efficiency.current_rating') !== 'N/A'
+      default: 
+        return false
+    }
+  }
+
   const handleSubsectionClick = (subsectionId: string) => {
-    setActiveSubsection(subsectionId)
-    setRightPanelOpen(true)
+    if (activeSection === 'property-details' && hasSubsectionData(subsectionId)) {
+      setActiveSubsection(subsectionId)
+      setRightPanelOpen(true)
+    }
   }
 
   return (
@@ -243,7 +323,12 @@ export default function DashboardV1() {
               {sections.map((section) => (
                 <li key={section.id}>
                   <button
-                    onClick={() => setActiveSection(section.id)}
+                    onClick={() => {
+                      setActiveSection(section.id)
+                      if (section.id !== 'property-details') {
+                        setRightPanelOpen(false)
+                      }
+                    }}
                     className={`w-full flex items-center px-4 py-2 rounded-xl text-left transition-all duration-200 ${
                       sidebarCollapsed 
                         ? 'justify-center' 
@@ -272,13 +357,10 @@ export default function DashboardV1() {
           <header className="sticky top-0 z-40 p-6">
             <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl px-6 py-3 shadow-2xl">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div>
-                    <h1 className="text-xl font-bold text-gray-100">
-                      Property Dashboard
-                    </h1>
-                    <p className="text-sm text-gray-400">UPRN: {uprn}</p>
-                  </div>
+                <div className="flex items-center">
+                  <h1 className="text-xl font-bold text-gray-100">
+                    Property Dashboard
+                  </h1>
                 </div>
                 <div className="flex items-center gap-3">
                   <button className="px-4 py-2 bg-gradient-to-r from-purple-500/80 to-pink-500/80 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl text-sm font-medium transition-all duration-200 backdrop-blur-sm shadow-lg">
@@ -291,231 +373,268 @@ export default function DashboardV1() {
 
           {/* Content Area */}
           <div className="p-6">
-            {/* Welcome Banner */}
-            <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 mb-6 shadow-2xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-100 mb-1">Hey there!</h2>
-                  <p className="text-gray-300">
-                    We can help with your property analysis and investment calculations with detailed insights and funding options.
-                  </p>
-                </div>
-                <div className="text-4xl">🏠</div>
-              </div>
-            </div>
-
-            {/* Subsections Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              {subsections[activeSection].map((subsection) => (
-                <button
-                  key={subsection.id}
-                  onClick={() => handleSubsectionClick(subsection.id)}
-                  className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 text-left hover:bg-gray-500/20 transition-all duration-200 group shadow-lg"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-xl">{subsection.icon}</span>
-                    <h3 className="font-semibold text-gray-100 group-hover:text-gray-50 transition-colors">
-                      {subsection.label}
-                    </h3>
-                  </div>
-                  <p className="text-sm text-gray-400">
-                    Click to view details in the right panel
-                  </p>
-                </button>
-              ))}
-            </div>
-
-            {/* Main Content Card */}
-            <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">📊</span>
-                <h3 className="text-lg font-semibold text-gray-100">Overview</h3>
-              </div>
-              <p className="text-gray-200 leading-relaxed whitespace-pre-line">
-                {loremContent[activeSection].content}
-              </p>
-            </div>
-
-            {/* Additional Content Sections */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* Statistics Card */}
-              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-lg">📈</span>
-                  <h3 className="text-lg font-semibold text-gray-100">Property Statistics</h3>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-gray-500/20">
-                    <span className="text-gray-300">Market Value</span>
-                    <span className="text-gray-100 font-semibold">£450,000</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-500/20">
-                    <span className="text-gray-300">Rental Yield</span>
-                    <span className="text-green-400 font-semibold">4.2%</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-500/20">
-                    <span className="text-gray-300">Price per sq ft</span>
-                    <span className="text-gray-100 font-semibold">£320</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-300">Growth Rate</span>
-                    <span className="text-blue-400 font-semibold">+8.5%</span>
+            {loading ? (
+              /* Loading Spinner */
+              <div className="flex items-center justify-center min-h-[400px]">
+                <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-8 shadow-2xl">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+                    <p className="text-gray-300">Loading property data...</p>
                   </div>
                 </div>
               </div>
-
-              {/* Recent Activity Card */}
-              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-lg">🕒</span>
-                  <h3 className="text-lg font-semibold text-gray-100">Recent Activity</h3>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 py-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                    <span className="text-sm text-gray-300">Property data updated</span>
-                    <span className="text-xs text-gray-500 ml-auto">2h ago</span>
-                  </div>
-                  <div className="flex items-center gap-3 py-2">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                    <span className="text-sm text-gray-300">Valuation completed</span>
-                    <span className="text-xs text-gray-500 ml-auto">1d ago</span>
-                  </div>
-                  <div className="flex items-center gap-3 py-2">
-                    <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                    <span className="text-sm text-gray-300">Report generated</span>
-                    <span className="text-xs text-gray-500 ml-auto">3d ago</span>
-                  </div>
-                  <div className="flex items-center gap-3 py-2">
-                    <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
-                    <span className="text-sm text-gray-300">Analysis saved</span>
-                    <span className="text-xs text-gray-500 ml-auto">1w ago</span>
+            ) : error ? (
+              /* Error State */
+              <div className="bg-red-900/20 backdrop-blur-xl border border-red-500/30 rounded-2xl p-6 shadow-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="text-2xl">⚠️</div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-red-100 mb-1">Error Loading Property</h2>
+                    <p className="text-red-300">{error}</p>
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* Section Content */
+              <div className="space-y-6">
+                {activeSection === 'property-details' && propertyData ? (
+                  /* Property Details Content */
+                  <div className="space-y-6">
+                    {/* Combined Address and Property Details */}
+                    <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
+                      {/* Address Section */}
+                      <div className="mb-6">
+                        <h2 className="text-lg font-medium text-gray-400 mb-3 uppercase tracking-wide">
+                          FULL ADDRESS
+                        </h2>
+                        <div className="text-left">
+                          <p className="text-gray-100 text-2xl font-semibold mb-1">
+                            {getPropertyValue('address.street_group_format.address_lines')}
+                          </p>
+                          <p className="text-gray-300 text-lg">
+                            {getPropertyValue('address.street_group_format.postcode')}
+                          </p>
+                        </div>
+                      </div>
 
-            {/* Market Analysis Section */}
-            <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">🏘️</span>
-                <h3 className="text-lg font-semibold text-gray-100">Market Analysis</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gray-500/10 rounded-xl p-4">
-                  <h4 className="text-gray-200 font-medium mb-2">Local Market Trends</h4>
-                  <p className="text-gray-400 text-sm">Property values in this area have shown consistent growth over the past 12 months, with an average increase of 8.5% year-over-year.</p>
-                </div>
-                <div className="bg-gray-500/10 rounded-xl p-4">
-                  <h4 className="text-gray-200 font-medium mb-2">Investment Potential</h4>
-                  <p className="text-gray-400 text-sm">This property offers strong rental yield potential with nearby amenities and transport links making it attractive to tenants.</p>
-                </div>
-                <div className="bg-gray-500/10 rounded-xl p-4">
-                  <h4 className="text-gray-200 font-medium mb-2">Future Outlook</h4>
-                  <p className="text-gray-400 text-sm">Development plans in the area suggest continued growth potential, with new infrastructure projects expected to boost property values.</p>
-                </div>
-              </div>
-            </div>
+                      {/* Property Details in Single Line */}
+                      <div className="border-t border-gray-500/30 pt-6">
+                        <div className="flex flex-wrap gap-4">
+                          {getPropertyValue('property_type.value') !== 'N/A' && (
+                            <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                              <span className="text-gray-400 text-sm">Type:</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('property_type.value')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('construction_age_band') !== 'N/A' && (
+                            <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                              <span className="text-gray-400 text-sm">Age:</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('construction_age_band')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('tenure.tenure_type') !== 'N/A' && (
+                            <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                              <span className="text-gray-400 text-sm">Tenure:</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('tenure.tenure_type')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('number_of_bedrooms.value') !== 'N/A' && (
+                            <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                              <span className="text-gray-400 text-sm">Beds:</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('number_of_bedrooms.value', '0')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('number_of_bathrooms.value') !== 'N/A' && (
+                            <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                              <span className="text-gray-400 text-sm">Baths:</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('number_of_bathrooms.value', '0')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('internal_area_square_metres') !== 'N/A' && getPropertyValue('internal_area_square_metres') !== '0' && (
+                            <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                              <span className="text-gray-400 text-sm">Area:</span>
+                              <span className="text-gray-100 font-medium">{formatArea(getPropertyValue('internal_area_square_metres', '0'))}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('council_tax.council_tax_band') !== 'N/A' && (
+                            <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                              <span className="text-gray-400 text-sm">Tax:</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('council_tax.council_tax_band', 'N/A')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.current_energy_rating') !== 'N/A' && (
+                            <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                              <span className="text-gray-400 text-sm">EPC:</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.current_energy_rating', 'N/A')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('flood_risk.risk_label') !== 'N/A' && (
+                            <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                              <span className="text-gray-400 text-sm">Flood:</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('flood_risk.risk_label', 'N/A')}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
-            {/* Financial Projections */}
-            <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">💰</span>
-                <h3 className="text-lg font-semibold text-gray-100">Financial Projections</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-500/30">
-                      <th className="text-left text-gray-300 py-3">Year</th>
-                      <th className="text-left text-gray-300 py-3">Property Value</th>
-                      <th className="text-left text-gray-300 py-3">Rental Income</th>
-                      <th className="text-left text-gray-300 py-3">ROI</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-gray-500/20">
-                      <td className="text-gray-200 py-3">2024</td>
-                      <td className="text-gray-200 py-3">£450,000</td>
-                      <td className="text-gray-200 py-3">£18,900</td>
-                      <td className="text-green-400 py-3">4.2%</td>
-                    </tr>
-                    <tr className="border-b border-gray-500/20">
-                      <td className="text-gray-200 py-3">2025</td>
-                      <td className="text-gray-200 py-3">£488,250</td>
-                      <td className="text-gray-200 py-3">£19,845</td>
-                      <td className="text-green-400 py-3">4.1%</td>
-                    </tr>
-                    <tr className="border-b border-gray-500/20">
-                      <td className="text-gray-200 py-3">2026</td>
-                      <td className="text-gray-200 py-3">£529,751</td>
-                      <td className="text-gray-200 py-3">£20,837</td>
-                      <td className="text-green-400 py-3">3.9%</td>
-                    </tr>
-                    <tr>
-                      <td className="text-gray-200 py-3">2027</td>
-                      <td className="text-gray-200 py-3">£574,780</td>
-                      <td className="text-gray-200 py-3">£21,879</td>
-                      <td className="text-green-400 py-3">3.8%</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                    {/* Location Section */}
+                    {getPropertyValue('location.coordinates.latitude') !== 'N/A' && (
+                      <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
+                        <h2 className="text-lg font-medium text-gray-400 mb-6 uppercase tracking-wide">
+                          LOCATION
+                        </h2>
+                        
+                        {/* Location Details */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                          <div className="lg:col-span-1">
+                            <h3 className="text-lg font-medium text-gray-200 mb-3">Local Area</h3>
+                            <div className="space-y-2">
+                              {getPropertyValue('localities.ward') !== 'N/A' && (
+                                <p className="text-gray-300">
+                                  <span className="text-gray-400">Ward:</span> {getPropertyValue('localities.ward')}
+                                </p>
+                              )}
+                              {getPropertyValue('localities.local_authority') !== 'N/A' && (
+                                <p className="text-gray-300">
+                                  <span className="text-gray-400">Local Authority:</span> {getPropertyValue('localities.local_authority')}
+                                </p>
+                              )}
+                              {getPropertyValue('localities.county') !== 'N/A' && (
+                                <p className="text-gray-300">
+                                  <span className="text-gray-400">County:</span> {getPropertyValue('localities.county')}
+                                </p>
+                              )}
+                              {getPropertyValue('localities.police_force') !== 'N/A' && (
+                                <p className="text-gray-300">
+                                  <span className="text-gray-400">Police Force:</span> {getPropertyValue('localities.police_force')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="lg:col-span-2">
+                            <h3 className="text-lg font-medium text-gray-200 mb-3">Maps</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {/* Google Map */}
+                              <div className="relative w-full h-48 rounded-lg overflow-hidden border border-gray-500/30">
+                                <iframe
+                                  src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&center=${getPropertyValue('location.coordinates.latitude')},${getPropertyValue('location.coordinates.longitude')}&zoom=15&maptype=roadmap`}
+                                  width="100%"
+                                  height="100%"
+                                  style={{ border: 0 }}
+                                  allowFullScreen
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer-when-downgrade"
+                                  title="Property Location Map"
+                                />
+                              </div>
+                              
+                              {/* Street View with Overlay Button */}
+                              <div className="relative w-full h-48 rounded-lg overflow-hidden border border-gray-500/30 group">
+                                <img
+                                  src={`https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${getPropertyValue('location.coordinates.latitude')},${getPropertyValue('location.coordinates.longitude')}&fov=90&heading=0&pitch=0&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
+                                  alt="Street View"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none'
+                                    e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                                  }}
+                                />
+                                <div className="hidden absolute inset-0 bg-gray-700 flex items-center justify-center">
+                                  <div className="text-center text-gray-400">
+                                    <div className="text-2xl mb-1">🏠</div>
+                                    <div className="text-sm">Street View</div>
+                                  </div>
+                                </div>
+                                {/* Overlay Button */}
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                  <a
+                                    href={`https://www.google.com/maps?q=${getPropertyValue('location.coordinates.latitude')},${getPropertyValue('location.coordinates.longitude')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/90 to-pink-500/90 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl text-sm font-medium transition-all duration-200 backdrop-blur-sm shadow-lg"
+                                  >
+                                    <span>🗺️</span>
+                                    Open in Maps
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-            {/* Additional Info Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 shadow-lg">
-                <div className="text-2xl mb-2">🏠</div>
-                <h4 className="text-gray-200 font-medium mb-1">Property Type</h4>
-                <p className="text-gray-400 text-sm">Semi-detached</p>
+                    {/* Property Details Subsections */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                      {subsections[activeSection]
+                        .sort((a, b) => {
+                          const aHasData = hasSubsectionData(a.id)
+                          const bHasData = hasSubsectionData(b.id)
+                          // Sort so that subsections with data come first
+                          if (aHasData && !bHasData) return -1
+                          if (!aHasData && bHasData) return 1
+                          return 0
+                        })
+                        .map((subsection) => {
+                        const hasData = hasSubsectionData(subsection.id)
+                        return (
+                          <button
+                            key={subsection.id}
+                            onClick={() => handleSubsectionClick(subsection.id)}
+                            disabled={!hasData}
+                            title={!hasData ? 'Not available' : undefined}
+                            className={`bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 text-left transition-all duration-200 group shadow-lg ${
+                              hasData 
+                                ? 'hover:bg-gray-500/20 cursor-pointer' 
+                                : 'opacity-50 cursor-not-allowed'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="text-xl">{subsection.icon}</span>
+                              <h3 className={`font-semibold transition-colors ${
+                                hasData 
+                                  ? 'text-gray-100 group-hover:text-gray-50' 
+                                  : 'text-gray-500'
+                              }`}>
+                                {subsection.label}
+                              </h3>
+                            </div>
+                            <p className={`text-sm ${
+                              hasData ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
+                              {subsection.description}
+                            </p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* Other Sections - Empty Layout */
+                  <div className="space-y-6">
+                    {/* Section Header */}
+                    <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                        <h3 className="text-lg font-semibold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h3>
+                      </div>
+                      <div className="text-center py-12">
+                        <div className="text-4xl mb-4 opacity-50">📊</div>
+                        <p className="text-gray-400">This section is ready for implementation...</p>
+                        <p className="text-sm text-gray-500 mt-2">Start building your content here</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 shadow-lg">
-                <div className="text-2xl mb-2">📐</div>
-                <h4 className="text-gray-200 font-medium mb-1">Floor Area</h4>
-                <p className="text-gray-400 text-sm">1,406 sq ft</p>
-              </div>
-              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 shadow-lg">
-                <div className="text-2xl mb-2">🛏️</div>
-                <h4 className="text-gray-200 font-medium mb-1">Bedrooms</h4>
-                <p className="text-gray-400 text-sm">3 bedrooms</p>
-              </div>
-              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 shadow-lg">
-                <div className="text-2xl mb-2">🚿</div>
-                <h4 className="text-gray-200 font-medium mb-1">Bathrooms</h4>
-                <p className="text-gray-400 text-sm">2 bathrooms</p>
-              </div>
-            </div>
+            )}
 
-            {/* Long Content Section */}
-            <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">📋</span>
-                <h3 className="text-lg font-semibold text-gray-100">Detailed Property Information</h3>
-              </div>
-              <div className="space-y-4">
-                <p className="text-gray-200 leading-relaxed">
-                  This exceptional property represents a unique opportunity in the current market. Located in a highly desirable area with excellent transport links and local amenities, it offers both immediate rental potential and long-term capital growth prospects.
-                </p>
-                <p className="text-gray-200 leading-relaxed">
-                  The property has been well-maintained and features modern fixtures throughout. The open-plan living area provides excellent space for families, while the private garden offers outdoor space that's increasingly valuable in today's market.
-                </p>
-                <p className="text-gray-200 leading-relaxed">
-                  Recent renovations include a new kitchen with integrated appliances, updated bathroom suites, and energy-efficient heating systems. These improvements not only enhance the property's appeal but also contribute to its rental yield potential.
-                </p>
-                <p className="text-gray-200 leading-relaxed">
-                  The local area has seen significant investment in recent years, with new shopping centers, restaurants, and leisure facilities opening nearby. This development has contributed to the area's growing popularity and property values.
-                </p>
-                <p className="text-gray-200 leading-relaxed">
-                  Transport links are excellent, with the nearest station just a 5-minute walk away, providing direct access to the city center in under 20 minutes. This connectivity makes the property attractive to commuters and contributes to its rental appeal.
-                </p>
-              </div>
-            </div>
           </div>
         </main>
 
-        {/* Right Panel Overlay */}
-        {rightPanelOpen && (
+        {/* Right Panel Overlay - Only for Property Details */}
+        {rightPanelOpen && activeSection === 'property-details' && (
           <div className="fixed inset-0 z-50 flex justify-end items-start animate-[fadeIn_0.15s_ease-out]">
             {/* Backdrop */}
             <div 
@@ -524,8 +643,8 @@ export default function DashboardV1() {
             />
             
             {/* Right Panel (Dark Glass) */}
-            <div className="relative w-[720px] bg-black/25 backdrop-blur-2xl border border-gray-500/30 flex flex-col shadow-2xl rounded-2xl mr-6 mt-6 mb-6 animate-[slideInRight_0.3s_cubic-bezier(0.4,0,0.2,1)]">
-              <div className="p-6 border-b border-gray-500/30 flex items-center justify-between">
+            <div className="relative w-[720px] bg-black/25 backdrop-blur-2xl border border-gray-500/30 flex flex-col shadow-2xl rounded-2xl mr-6 mt-6 mb-6 animate-[slideInRight_0.3s_cubic-bezier(0.4,0,0.2,1)] h-[calc(100vh-3rem)]">
+              <div className="p-6 border-b border-gray-500/30 flex items-center justify-between flex-shrink-0">
                 <h3 className="text-xl font-semibold text-fg-primary">
                   {subsections[activeSection]?.find(s => s.id === activeSubsection)?.label}
                 </h3>
@@ -536,74 +655,376 @@ export default function DashboardV1() {
                   <span className="text-fg-muted hover:text-fg-primary text-xl">✕</span>
                 </button>
               </div>
-              <div className="flex-1 p-6 overflow-y-auto">
+              <div className="flex-1 p-6 overflow-y-auto min-h-0">
                 <div className="space-y-6">
-                  <div className="bg-black/20 border border-gray-500/30 rounded-lg p-6">
-                    <h4 className="font-semibold text-fg-primary mb-3 text-lg">Details</h4>
-                    <p className="text-fg-muted leading-relaxed">
-                      This is where the {activeSubsection} details would be displayed. 
-                      You can access specific information without leaving the main dashboard.
-                      The panel is now wider and overlays on top of the main content.
-                    </p>
-                  </div>
-                  
-                  <div className="bg-black/20 border border-gray-500/30 rounded-lg p-6">
-                    <h4 className="font-semibold text-fg-primary mb-3 text-lg">Actions</h4>
-                    <div className="space-y-3">
-                      <button className="w-full text-left px-4 py-3 bg-accent text-accent-fg rounded-lg font-medium hover:opacity-90 transition-opacity">
-                        Edit Details
-                      </button>
-                      <button className="w-full text-left px-4 py-3 bg-gray-500/20 text-fg-primary rounded-lg font-medium hover:bg-gray-500/30 transition-colors">
-                        Export Data
-                      </button>
-                      <button className="w-full text-left px-4 py-3 border border-gray-500/30 text-fg-primary rounded-lg font-medium hover:bg-gray-500/20 transition-colors">
-                        Share Report
-                      </button>
+                  {/* Property Details Subsections */}
+                  {activeSection === 'property-details' && activeSubsection === 'ownership' && propertyData && (
+                    <div className="bg-black/20 border border-gray-500/30 rounded-lg p-6">
+                      <h4 className="font-semibold text-gray-100 mb-4 text-lg">Ownership & Occupancy Details</h4>
+                      <div className="space-y-3">
+                        {getPropertyValue('tenure.tenure_type') !== 'N/A' && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                            <span className="text-gray-400">Tenure Type</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('tenure.tenure_type')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('ownership.company_owned') !== 'N/A' && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                            <span className="text-gray-400">Company Owned</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('ownership.company_owned') ? 'Yes' : 'No'}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('ownership.overseas_owned') !== 'N/A' && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                            <span className="text-gray-400">Overseas Owned</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('ownership.overseas_owned') ? 'Yes' : 'No'}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('ownership.social_housing') !== 'N/A' && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                            <span className="text-gray-400">Social Housing</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('ownership.social_housing') ? 'Yes' : 'No'}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-gray-400">Occupancy</span>
+                          <span className="text-gray-100 font-medium">
+                            {getPropertyValue('occupancy') !== 'N/A' ? getPropertyValue('occupancy') : 'Unspecified'}
+                          </span>
+                        </div>
+                        {getPropertyValue('tenure.tenure_type') === 'N/A' && 
+                         getPropertyValue('ownership.company_owned') === 'N/A' && 
+                         getPropertyValue('ownership.overseas_owned') === 'N/A' && 
+                         getPropertyValue('ownership.social_housing') === 'N/A' && (
+                          <div className="text-center py-8">
+                            <div className="text-3xl mb-3 opacity-50">🏠</div>
+                            <p className="text-gray-400">No ownership data available</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="bg-black/20 border border-gray-500/30 rounded-lg p-6">
-                    <h4 className="font-semibold text-fg-primary mb-3 text-lg">Quick Info</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
-                        <span className="text-fg-muted">Last updated</span>
-                        <span className="text-fg-primary font-medium">2 hours ago</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
-                        <span className="text-fg-muted">Status</span>
-                        <span className="text-green-400 font-medium">Active</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
-                        <span className="text-fg-muted">Priority</span>
-                        <span className="text-accent font-medium">High</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-fg-muted">Progress</span>
-                        <span className="text-fg-primary font-medium">75%</span>
-                      </div>
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="bg-black/20 border border-gray-500/30 rounded-lg p-6">
-                    <h4 className="font-semibold text-fg-primary mb-3 text-lg">Recent Activity</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 py-2">
-                        <div className="w-2 h-2 bg-accent rounded-full"></div>
-                        <span className="text-sm text-fg-muted">Property data updated</span>
-                        <span className="text-xs text-fg-muted ml-auto">2h ago</span>
-                      </div>
-                      <div className="flex items-center gap-3 py-2">
-                        <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                        <span className="text-sm text-fg-muted">Valuation completed</span>
-                        <span className="text-xs text-fg-muted ml-auto">1d ago</span>
-                      </div>
-                      <div className="flex items-center gap-3 py-2">
-                        <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                        <span className="text-sm text-fg-muted">Report generated</span>
-                        <span className="text-xs text-fg-muted ml-auto">3d ago</span>
+                  {activeSection === 'property-details' && activeSubsection === 'construction' && propertyData && (
+                    <div className="bg-black/20 border border-gray-500/30 rounded-lg p-6">
+                      <h4 className="font-semibold text-gray-100 mb-4 text-lg">Construction Details</h4>
+                      <div className="space-y-3">
+                        {getPropertyValue('construction_materials.walls') !== 'N/A' && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                            <span className="text-gray-400">Wall Material</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('construction_materials.walls')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('construction_materials.roof') !== 'N/A' && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                            <span className="text-gray-400">Roof Material</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('construction_materials.roof')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('construction_materials.windows') !== 'N/A' && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                            <span className="text-gray-400">Window Material</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('construction_materials.windows')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('listed_buildings_on_plot') !== 'N/A' && (
+                          <div className="flex justify-between items-center py-2">
+                            <span className="text-gray-400">Listed Buildings</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('listed_buildings_on_plot')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('construction_materials.walls') === 'N/A' && 
+                         getPropertyValue('construction_materials.roof') === 'N/A' && 
+                         getPropertyValue('construction_materials.windows') === 'N/A' && 
+                         getPropertyValue('listed_buildings_on_plot') === 'N/A' && (
+                          <div className="text-center py-8">
+                            <div className="text-3xl mb-3 opacity-50">🏗️</div>
+                            <p className="text-gray-400">No construction data available</p>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  )}
+
+                  {activeSection === 'property-details' && activeSubsection === 'plot' && propertyData && (
+                    <div className="bg-black/20 border border-gray-500/30 rounded-lg p-6">
+                      <h4 className="font-semibold text-gray-100 mb-4 text-lg">Plot & Outdoor Space</h4>
+                      <div className="space-y-6">
+                        {/* Plot Boundary Visualization */}
+                        {getPropertyValue('plot.polygons.0.epsg_4326_polygon.coordinates') !== 'N/A' && (
+                          <div className="mb-6">
+                            <h5 className="text-lg font-medium text-gray-200 mb-3">Plot Boundary</h5>
+                            <div className="relative w-full h-64 rounded-lg overflow-hidden border border-gray-500/30 bg-gray-800/50 flex items-center justify-center">
+                              <PlotBoundaryVisualization 
+                                coordinates={getPropertyValue('plot.polygons.0.epsg_4326_polygon.coordinates')}
+                              />
+                              <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
+                                Plot Boundary
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Plot Details */}
+                        <div className="space-y-3">
+                          <h5 className="text-lg font-medium text-gray-200 mb-3">Plot Details</h5>
+                          {getPropertyValue('plot.total_plot_area_square_metres') !== 'N/A' && getPropertyValue('plot.total_plot_area_square_metres') !== '0' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Total Plot Area</span>
+                              <span className="text-gray-100 font-medium">{formatArea(getPropertyValue('plot.total_plot_area_square_metres', '0'))}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('plot.polygons.0.boundary_area_square_metres') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Boundary Area</span>
+                              <span className="text-gray-100 font-medium">{formatArea(getPropertyValue('plot.polygons.0.boundary_area_square_metres', '0'))}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('plot.polygons.0.distance_from_property') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2">
+                              <span className="text-gray-400">Distance from Property</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('plot.polygons.0.distance_from_property')}m</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Outdoor Space Details */}
+                        <div className="space-y-3">
+                          <h5 className="text-lg font-medium text-gray-200 mb-3">Outdoor Space</h5>
+                          {getPropertyValue('outdoor_space.outdoor_space_area_square_metres') !== 'N/A' && getPropertyValue('outdoor_space.outdoor_space_area_square_metres') !== '0' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Outdoor Space Area</span>
+                              <span className="text-gray-100 font-medium">{formatArea(getPropertyValue('outdoor_space.outdoor_space_area_square_metres', '0'))}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('outdoor_space.garden_direction') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Garden Direction</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('outdoor_space.garden_direction')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('outdoor_space.garden_primary_orientation') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2">
+                              <span className="text-gray-400">Garden Orientation</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('outdoor_space.garden_primary_orientation')}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* No data fallback */}
+                        {getPropertyValue('plot.total_plot_area_square_metres') === 'N/A' && 
+                         getPropertyValue('outdoor_space.outdoor_space_area_square_metres') === 'N/A' && (
+                          <div className="text-center py-8">
+                            <div className="text-3xl mb-3 opacity-50">🌳</div>
+                            <p className="text-gray-400">No plot data available</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeSection === 'property-details' && activeSubsection === 'utilities' && propertyData && (
+                    <div className="bg-black/20 border border-gray-500/30 rounded-lg p-6">
+                      <h4 className="font-semibold text-gray-100 mb-4 text-lg">Utilities & Services</h4>
+                      <div className="space-y-3">
+                        {getPropertyValue('utilities.water') !== 'N/A' && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                            <span className="text-gray-400">Water</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('utilities.water')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('utilities.drainage') !== 'N/A' && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                            <span className="text-gray-400">Drainage</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('utilities.drainage')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('utilities.heating') !== 'N/A' && (
+                          <div className="flex justify-between items-center py-2">
+                            <span className="text-gray-400">Heating</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('utilities.heating')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('utilities.water') === 'N/A' && 
+                         getPropertyValue('utilities.drainage') === 'N/A' && 
+                         getPropertyValue('utilities.heating') === 'N/A' && (
+                          <div className="text-center py-8">
+                            <div className="text-3xl mb-3 opacity-50">⚡</div>
+                            <p className="text-gray-400">No utilities data available</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeSection === 'property-details' && activeSubsection === 'energy' && propertyData && (
+                    <div className="bg-black/20 border border-gray-500/30 rounded-lg p-6">
+                      <h4 className="font-semibold text-gray-100 mb-4 text-lg">EPC Rating</h4>
+                      <div className="space-y-4">
+                        {/* EPC Ratings */}
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          {getPropertyValue('energy_performance.energy_efficiency.current_rating') !== 'N/A' && (
+                            <div className="bg-gray-500/10 rounded-lg p-4 text-center">
+                              <div className="text-2xl font-bold text-gray-100 mb-1">
+                                {getPropertyValue('energy_performance.energy_efficiency.current_rating')}
+                              </div>
+                              <div className="text-sm text-gray-400">Current Rating</div>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.energy_efficiency.potential_rating') !== 'N/A' && (
+                            <div className="bg-gray-500/10 rounded-lg p-4 text-center">
+                              <div className="text-2xl font-bold text-gray-100 mb-1">
+                                {getPropertyValue('energy_performance.energy_efficiency.potential_rating')}
+                              </div>
+                              <div className="text-sm text-gray-400">Potential Rating</div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Efficiency Scores */}
+                        <div className="space-y-3">
+                          {getPropertyValue('energy_performance.energy_efficiency.current_efficiency') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Current Efficiency Score</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.energy_efficiency.current_efficiency')}/100</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.energy_efficiency.potential_efficiency') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Potential Efficiency Score</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.energy_efficiency.potential_efficiency')}/100</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.environmental_impact.current_impact') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Current Environmental Impact</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.environmental_impact.current_impact')}/100</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.environmental_impact.potential_impact') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Potential Environmental Impact</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.environmental_impact.potential_impact')}/100</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Certificate Details */}
+                        <div className="space-y-3">
+                          <h5 className="text-lg font-medium text-gray-200 mb-3">Certificate Details</h5>
+                          {getPropertyValue('energy_performance.lodgement_date') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Lodgement Date</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.lodgement_date')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.expiry_date') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Expiry Date</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.expiry_date')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.total_floor_area') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Total Floor Area</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.total_floor_area')}m²</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Building Details */}
+                        <div className="space-y-3">
+                          <h5 className="text-lg font-medium text-gray-200 mb-3">Building Details</h5>
+                          {getPropertyValue('energy_performance.mainheat_description') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Main Heating</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.mainheat_description')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.mainheat_energy_eff') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Heating Efficiency</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.mainheat_energy_eff')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.hot_water_energy_eff') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Hot Water Efficiency</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.hot_water_energy_eff')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.windows_description') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Windows</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.windows_description')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.windows_energy_eff') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Windows Efficiency</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.windows_energy_eff')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.walls_description') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Walls</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.walls_description')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.walls_energy_eff') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Walls Efficiency</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.walls_energy_eff')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.roof_description') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Roof</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.roof_description')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.roof_energy_eff') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Roof Efficiency</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.roof_energy_eff')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.lighting_description') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
+                              <span className="text-gray-400">Lighting</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.lighting_description')}</span>
+                            </div>
+                          )}
+                          {getPropertyValue('energy_performance.lighting_energy_eff') !== 'N/A' && (
+                            <div className="flex justify-between items-center py-2">
+                              <span className="text-gray-400">Lighting Efficiency</span>
+                              <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.lighting_energy_eff')}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* No data fallback */}
+                        {getPropertyValue('energy_performance.energy_efficiency.current_rating') === 'N/A' && 
+                         getPropertyValue('energy_performance.energy_efficiency.potential_rating') === 'N/A' && (
+                          <div className="text-center py-8">
+                            <div className="text-3xl mb-3 opacity-50">⚡</div>
+                            <p className="text-gray-400">No EPC data available</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Default content for property details subsections not implemented */}
+                  {activeSection === 'property-details' && !['ownership', 'construction', 'plot', 'utilities', 'energy'].includes(activeSubsection || '') && (
+                    <div className="bg-black/20 border border-gray-500/30 rounded-lg p-6">
+                      <h4 className="font-semibold text-gray-100 mb-3 text-lg">Details</h4>
+                      <div className="text-center py-8">
+                        <div className="text-3xl mb-3 opacity-50">📋</div>
+                        <p className="text-gray-400">No data available for this section</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
