@@ -8,9 +8,31 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        background: 'var(--background)',
-        foreground: 'var(--foreground)',
+        bg: {
+          app: 'var(--bg-app)',
+          elevated: 'var(--bg-elevated)',
+          subtle: 'var(--bg-subtle)'
+        },
+        fg: {
+          primary: 'var(--fg-primary)',
+          muted: 'var(--fg-muted)',
+          inverted: 'var(--fg-inverted)'
+        },
+        border: {
+          DEFAULT: 'var(--border)'
+        },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          fg: 'var(--accent-foreground)'
+        },
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        danger: 'var(--danger)',
+        ring: 'var(--ring)'
       },
+      boxShadow: {
+        focus: '0 0 0 3px var(--ring)'
+      }
     },
   },
   plugins: [],
