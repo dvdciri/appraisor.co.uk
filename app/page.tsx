@@ -222,7 +222,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-900">
+    <main className="min-h-screen bg-bg-app text-fg-primary">
       {/* Error Toast */}
       {errorMessage && (
         <Toast
@@ -247,10 +247,10 @@ export default function Home() {
 
           <div className="space-y-6">
               {/* Search Form */}
-              <div className="bg-gray-800 rounded-lg p-8 animate-enter-subtle">
+              <div className="bg-bg-elevated border border-border rounded-lg p-8 animate-enter-subtle">
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
-                    <label htmlFor="address" className="block text-sm font-medium text-gray-300 mb-2">
+                    <label htmlFor="address" className="block text-sm font-medium text-fg-primary mb-2">
                       Property Address
                     </label>
                     <AddressAutocomplete
@@ -263,7 +263,7 @@ export default function Home() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200"
+                    className="w-full bg-accent text-accent-fg hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed font-medium py-3 px-6 rounded-lg transition-opacity duration-200 focus:outline-none focus:shadow-focus"
                   >
                     {loading ? 'Finding Property...' : 'Find Property'}
                   </button>

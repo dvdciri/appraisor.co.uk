@@ -192,7 +192,7 @@ export default function AddressAutocomplete({
               setShowSuggestions(true)
             }
           }}
-          className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-3 bg-bg-subtle border border-border rounded-lg text-fg-primary placeholder-fg-muted focus:outline-none focus:shadow-focus"
           placeholder={placeholder}
           autoComplete="off"
         />
@@ -200,14 +200,14 @@ export default function AddressAutocomplete({
         {/* Loading indicator */}
         {isLoading && (
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent"></div>
           </div>
         )}
       </div>
 
       {/* Error message */}
       {error && (
-        <div className="mt-2 text-sm text-red-400">
+        <div className="mt-2 text-sm text-danger">
           {error}
         </div>
       )}
@@ -216,13 +216,13 @@ export default function AddressAutocomplete({
       {showSuggestions && suggestions.length > 0 && (
         <div
           ref={suggestionsRef}
-          className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+          className="absolute z-10 w-full mt-1 bg-bg-elevated border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto"
         >
           {suggestions.map((suggestion, index) => (
             <div
               key={suggestion.place_id}
-              className={`px-4 py-3 cursor-pointer text-white hover:bg-gray-700 ${
-                index === selectedIndex ? 'bg-gray-700' : ''
+              className={`px-4 py-3 cursor-pointer text-fg-primary hover:bg-bg-subtle ${
+                index === selectedIndex ? 'bg-bg-subtle' : ''
               } ${index === 0 ? 'rounded-t-lg' : ''} ${
                 index === suggestions.length - 1 ? 'rounded-b-lg' : ''
               }`}
@@ -230,7 +230,7 @@ export default function AddressAutocomplete({
             >
               <div className="flex items-center gap-2">
                 <svg 
-                  className="w-4 h-4 text-gray-400 flex-shrink-0" 
+                  className="w-4 h-4 text-fg-muted flex-shrink-0" 
                   fill="none" 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"
