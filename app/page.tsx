@@ -64,6 +64,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [isSelectingFromAutocomplete, setIsSelectingFromAutocomplete] = useState(false)
 
 
   const saveToRecentAnalyses = async (data: any, searchAddress: string, searchPostcode: string) => {
@@ -148,21 +149,27 @@ export default function Home() {
   }
 
   const handleAddressSelect = (address: string, postcode: string) => {
+    setIsSelectingFromAutocomplete(true)
     setSelectedAddress(address)
     setSelectedPostcode(postcode)
+    // Don't change fullAddress here - let the component handle it
+    console.log('Address selected:', { address, postcode })
   }
 
   const handleAddressChange = (value: string) => {
     setFullAddress(value)
-    // Clear selected address if user types manually
-    if (!value.includes(selectedAddress) || !value.includes(selectedPostcode)) {
+    // Clear selected address if user types manually (not from autocomplete)
+    if (!isSelectingFromAutocomplete) {
       setSelectedAddress('')
       setSelectedPostcode('')
     }
+    // Reset the flag after handling the change
+    setIsSelectingFromAutocomplete(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('Form submit - selectedAddress:', selectedAddress, 'selectedPostcode:', selectedPostcode, 'fullAddress:', fullAddress)
     if (!selectedAddress || !selectedPostcode) {
       setErrorMessage('Please select an address from the suggestions')
       return

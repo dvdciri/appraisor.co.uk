@@ -4,5 +4,6 @@ declare namespace NodeJS {
     TODOIST_API_KEY: string;
     DATABASE_URL: string;
     STREET_API_KEY: string;
+    MAPS_API_KEY: string;
   }
 }

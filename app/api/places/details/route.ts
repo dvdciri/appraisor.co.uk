@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (!process.env.STREET_API_KEY) {
-      console.error('STREET_API_KEY not found. Please configure your API key.')
+    if (!process.env.MAPS_API_KEY) {
+      console.error('MAPS_API_KEY not found. Please configure your API key.')
       return NextResponse.json(
         { error: 'API key not configured' },
         { status: 500 }
@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
     const response = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
       method: 'GET',
       headers: {
-        'X-Goog-Api-Key': process.env.STREET_API_KEY,
-        'X-Goog-FieldMask': 'formattedAddress,addressComponents',
+        'X-Goog-Api-Key': process.env.MAPS_API_KEY,
+        'X-Goog-FieldMask': 'addressComponents',
       },
     })
 
@@ -39,50 +39,41 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json()
     
-    // Extract address components
-    let address = ''
+    // Extract street number and postal code
+    let streetNumber = ''
+    let route = ''
     let postcode = ''
 
-    if (data.formattedAddress) {
-      // Use the formatted address as the base
-      address = data.formattedAddress
-    }
-
     if (data.addressComponents) {
-      // Extract postcode from address components
+      // Find street number
+      const streetNumberComponent = data.addressComponents.find(
+        (component: any) => component.types?.includes('street_number')
+      )
+      if (streetNumberComponent) {
+        streetNumber = streetNumberComponent.longText || streetNumberComponent.shortText || ''
+      }
+
+      // Find route (street name)
+      const routeComponent = data.addressComponents.find(
+        (component: any) => component.types?.includes('route')
+      )
+      if (routeComponent) {
+        route = routeComponent.longText || routeComponent.shortText || ''
+      }
+
+      // Find postal code
       const postalCodeComponent = data.addressComponents.find(
         (component: any) => component.types?.includes('postal_code')
       )
-      
       if (postalCodeComponent) {
         postcode = postalCodeComponent.longText || postalCodeComponent.shortText || ''
-        
-        // Remove postcode from the address string for cleaner address
-        if (postcode && address.includes(postcode)) {
-          address = address.replace(postcode, '').trim().replace(/,$/, '')
-        }
-      }
-
-      // If we don't have a good formatted address, build it from components
-      if (!address || address.length < 10) {
-        const streetNumber = data.addressComponents.find(
-          (component: any) => component.types?.includes('street_number')
-        )?.longText || ''
-        
-        const route = data.addressComponents.find(
-          (component: any) => component.types?.includes('route')
-        )?.longText || ''
-        
-        const locality = data.addressComponents.find(
-          (component: any) => component.types?.includes('locality')
-        )?.longText || ''
-        
-        const addressParts = [streetNumber, route, locality].filter(Boolean)
-        if (addressParts.length > 0) {
-          address = addressParts.join(' ')
-        }
       }
     }
+
+    // Combine street number and route
+    const address = [streetNumber, route].filter(Boolean).join(' ')
+
+    console.log('Extracted from details API:', { address, postcode })
 
     return NextResponse.json({
       address: address || 'Address not found',

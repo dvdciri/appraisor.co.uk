@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ suggestions: [] })
     }
 
-    if (!process.env.STREET_API_KEY) {
-      console.error('STREET_API_KEY not found. Please configure your API key.')
+    if (!process.env.MAPS_API_KEY) {
+      console.error('MAPS_API_KEY not found. Please configure your API key.')
       return NextResponse.json(
         { error: 'API key not configured' },
         { status: 500 }
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Goog-Api-Key': process.env.STREET_API_KEY,
+        'X-Goog-Api-Key': process.env.MAPS_API_KEY,
       },
       body: JSON.stringify({
         input,

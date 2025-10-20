@@ -113,6 +113,7 @@ export default function AddressAutocomplete({
       }
 
       const data = await response.json()
+      console.log('Details API response:', data)
       onAddressSelect(data.address, data.postcode)
     } catch (err) {
       console.error('Error fetching address details:', err)
