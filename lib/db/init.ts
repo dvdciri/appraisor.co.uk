@@ -4,50 +4,51 @@ export async function initializeDatabase(): Promise<void> {
   try {
     console.log('Initializing database...')
     
-    // First, drop the old calculator_data table if it exists (to handle schema migration)
+    // Note: Removed table dropping to prevent data loss on app startup
+    // The calculator_data table should only be dropped during manual migrations
+    
+    
+    // Execute each table creation separately to avoid conflicts
     try {
-      await query('DROP TABLE IF EXISTS calculator_data CASCADE')
-      console.log('Dropped old calculator_data table for migration')
+      await query(`
+        CREATE TABLE IF NOT EXISTS properties (
+            uprn VARCHAR(255) PRIMARY KEY,
+            data JSONB NOT NULL,
+            last_fetched BIGINT NOT NULL,
+            fetched_count INT DEFAULT 1,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            user_id VARCHAR(255)
+        )
+      `)
+      console.log('Created/verified properties table')
     } catch (error) {
-      console.log('No existing calculator_data table to drop')
+      console.error('Error creating properties table:', error)
     }
     
-    // Embedded schema to avoid file system issues in production
-    const schema = `
-CREATE TABLE IF NOT EXISTS properties (
-    uprn VARCHAR(255) PRIMARY KEY,
-    data JSONB NOT NULL,
-    last_fetched BIGINT NOT NULL,
-    fetched_count INT DEFAULT 1,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    user_id VARCHAR(255)
-);
-
-CREATE TABLE IF NOT EXISTS calculator_data (
-    uprn VARCHAR(50) PRIMARY KEY,
-    data JSONB NOT NULL,
-    last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    user_id UUID NULL
-);
-
--- Create indexes for faster lookups
-CREATE INDEX IF NOT EXISTS idx_properties_uprn ON properties(uprn);
-CREATE INDEX IF NOT EXISTS idx_properties_user_id ON properties(user_id);
-CREATE INDEX IF NOT EXISTS idx_calculator_data_user_id ON calculator_data(user_id);
-    `
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS calculator_data (
+            uprn VARCHAR(50) PRIMARY KEY,
+            data JSONB NOT NULL,
+            last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            user_id UUID NULL
+        )
+      `)
+      console.log('Created/verified calculator_data table')
+    } catch (error) {
+      console.error('Error creating calculator_data table:', error)
+    }
     
-    // Split schema into individual statements and execute them
-    const statements = schema
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'))
-    
-    for (const statement of statements) {
-      if (statement.trim()) {
-        await query(statement)
-      }
+    // Create indexes separately
+    try {
+      await query('CREATE INDEX IF NOT EXISTS idx_properties_uprn ON properties(uprn)')
+      await query('CREATE INDEX IF NOT EXISTS idx_properties_user_id ON properties(user_id)')
+      await query('CREATE INDEX IF NOT EXISTS idx_calculator_data_user_id ON calculator_data(user_id)')
+      console.log('Created/verified indexes')
+    } catch (error) {
+      console.error('Error creating indexes:', error)
     }
     
     console.log('Database initialized successfully')

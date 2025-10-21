@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import InvestmentCalculator from '../components/InvestmentCalculator'
 
 type Section = 'property-details' | 'market-analysis' | 'sold-comparables' | 'investment-calculator' | 'ai-refurbishment' | 'risk-assessment'
@@ -803,6 +803,7 @@ const PlotBoundaryVisualization = ({ coordinates }: { coordinates: any }) => {
 export default function DashboardV1() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [activeSection, setActiveSection] = useState<Section>('property-details')
   const [rightPanelOpen, setRightPanelOpen] = useState(false)
   const [activeSubsection, setActiveSubsection] = useState<string | null>(null)
@@ -859,6 +860,14 @@ export default function DashboardV1() {
     
     return () => window.removeEventListener('resize', checkScreenSize)
   }, []) // Empty dependency array - only run once on mount
+
+  // Load section from URL parameters on mount
+  useEffect(() => {
+    const sectionFromUrl = searchParams.get('section') as Section
+    if (sectionFromUrl && sections.some(s => s.id === sectionFromUrl)) {
+      setActiveSection(sectionFromUrl)
+    }
+  }, [searchParams])
 
   // Fetch property data on mount
   useEffect(() => {
@@ -935,6 +944,13 @@ export default function DashboardV1() {
       default:
         return null
     }
+  }
+
+  // Helper function to update URL with section parameter
+  const updateSectionInUrl = (section: Section) => {
+    const currentUrl = new URL(window.location.href)
+    currentUrl.searchParams.set('section', section)
+    router.push(currentUrl.pathname + currentUrl.search, { scroll: false })
   }
 
   const handleSubsectionClick = (subsectionId: string) => {
@@ -1043,6 +1059,7 @@ export default function DashboardV1() {
                   <button
                     onClick={() => {
                       setActiveSection(section.id)
+                      updateSectionInUrl(section.id)
                       if (section.id !== 'property-details') {
                         setRightPanelOpen(false)
                         setActiveSubsection(null)
@@ -1113,222 +1130,229 @@ export default function DashboardV1() {
               <div className="space-y-6">
                 {activeSection === 'property-details' && propertyData ? (
               /* Property Details Content */
-              <div className="space-y-6">
-                {/* LOCATION Section */}
-                <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
-                  <h2 className="text-lg font-medium text-gray-400 mb-6 uppercase tracking-wide">
-                    LOCATION
-                  </h2>
-                  
-                  {/* Address Section */}
-                  <div className="mb-6">
-                    <h3 className="text-md font-medium text-gray-300 mb-3">Address</h3>
-                    <div className="text-left">
-                      <p className="text-gray-100 text-2xl font-semibold mb-1">
-                        {getPropertyValue('address.street_group_format.address_lines')}
-                      </p>
-                      <p className="text-gray-300 text-lg">
-                        {getPropertyValue('address.street_group_format.postcode')}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Location Details */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                    <div className="lg:col-span-1">
-                      <h3 className="text-lg font-medium text-gray-200 mb-3">Local Area</h3>
-                      <div className="space-y-2">
-                        {getPropertyValue('localities.ward') !== 'N/A' && (
-                          <p className="text-gray-300">
-                            <span className="text-gray-400">Ward:</span> {getPropertyValue('localities.ward')}
-                          </p>
-                        )}
-                        {getPropertyValue('localities.local_authority') !== 'N/A' && (
-                          <p className="text-gray-300">
-                            <span className="text-gray-400">Local Authority:</span> {getPropertyValue('localities.local_authority')}
-                          </p>
-                        )}
-                        {getPropertyValue('localities.county') !== 'N/A' && (
-                          <p className="text-gray-300">
-                            <span className="text-gray-400">County:</span> {getPropertyValue('localities.county')}
-                          </p>
-                        )}
-                        {getPropertyValue('localities.police_force') !== 'N/A' && (
-                          <p className="text-gray-300">
-                            <span className="text-gray-400">Police Force:</span> {getPropertyValue('localities.police_force')}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="lg:col-span-2">
-                      <h3 className="text-lg font-medium text-gray-200 mb-3">Maps</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Google Map */}
-                        <div className="relative w-full h-48 rounded-lg overflow-hidden border border-gray-500/30">
-                          <iframe
-                            src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&center=${getPropertyValue('location.coordinates.latitude')},${getPropertyValue('location.coordinates.longitude')}&zoom=15&maptype=roadmap`}
-                            width="100%"
-                            height="100%"
-                            style={{ border: 0 }}
-                            allowFullScreen
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                            title="Property Location Map"
-                          />
-                        </div>
-                        
-                        {/* Street View with Overlay Button */}
-                        <div className="relative w-full h-48 rounded-lg overflow-hidden border border-gray-500/30 group">
-                          <img
-                            src={`https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${getPropertyValue('location.coordinates.latitude')},${getPropertyValue('location.coordinates.longitude')}&fov=80&pitch=0&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
-                            alt="Street View"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none'
-                              e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                            }}
-                          />
-                          <div className="hidden absolute inset-0 bg-gray-700 flex items-center justify-center">
-                            <div className="text-center text-gray-400">
-                              <div className="text-2xl mb-1">🏠</div>
-                              <div className="text-sm">Street View</div>
-                            </div>
-                          </div>
-                          {/* Overlay Button */}
-                          <div className="absolute top-3 left-3">
-                            <a
-                              href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${getPropertyValue('location.coordinates.latitude')},${getPropertyValue('location.coordinates.longitude')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-black/60 hover:bg-black/80 text-white rounded-lg text-xs font-medium transition-all duration-200 backdrop-blur-sm border border-white/20"
-                            >
-                              Open in Maps
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                  <h3 className="text-lg font-semibold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h3>
                 </div>
-
-                {/* Details Section */}
-                <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
-                  <h2 className="text-lg font-medium text-gray-400 mb-6 uppercase tracking-wide">
-                    DETAILS
-                  </h2>
-                  
-                  {/* Property Details in Single Line */}
-                  <div className="mb-6">
-                    <div className="flex flex-wrap gap-4">
-                      {getPropertyValue('property_type.value') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Type:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('property_type.value')}</span>
+                
+                <div className="space-y-6">
+                  {/* LOCATION Section */}
+                  <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-6 shadow-lg">
+                    <h2 className="text-lg font-medium text-gray-400 mb-6 uppercase tracking-wide">
+                      LOCATION
+                    </h2>
+                    
+                    {/* Address Section */}
+                    <div className="mb-6">
+                      <h3 className="text-md font-medium text-gray-300 mb-3">Address</h3>
+                      <div className="text-left">
+                        <p className="text-gray-100 text-2xl font-semibold mb-1">
+                          {getPropertyValue('address.street_group_format.address_lines')}
+                        </p>
+                        <p className="text-gray-300 text-lg">
+                          {getPropertyValue('address.street_group_format.postcode')}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Location Details */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                      <div className="lg:col-span-1">
+                        <h3 className="text-lg font-medium text-gray-200 mb-3">Local Area</h3>
+                        <div className="space-y-2">
+                          {getPropertyValue('localities.ward') !== 'N/A' && (
+                            <p className="text-gray-300">
+                              <span className="text-gray-400">Ward:</span> {getPropertyValue('localities.ward')}
+                            </p>
+                          )}
+                          {getPropertyValue('localities.local_authority') !== 'N/A' && (
+                            <p className="text-gray-300">
+                              <span className="text-gray-400">Local Authority:</span> {getPropertyValue('localities.local_authority')}
+                            </p>
+                          )}
+                          {getPropertyValue('localities.county') !== 'N/A' && (
+                            <p className="text-gray-300">
+                              <span className="text-gray-400">County:</span> {getPropertyValue('localities.county')}
+                            </p>
+                          )}
+                          {getPropertyValue('localities.police_force') !== 'N/A' && (
+                            <p className="text-gray-300">
+                              <span className="text-gray-400">Police Force:</span> {getPropertyValue('localities.police_force')}
+                            </p>
+                          )}
                         </div>
-                      )}
-                      {getPropertyValue('construction_age_band') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Age:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('construction_age_band')}</span>
+                      </div>
+                      <div className="lg:col-span-2">
+                        <h3 className="text-lg font-medium text-gray-200 mb-3">Maps</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Google Map */}
+                          <div className="relative w-full h-48 rounded-lg overflow-hidden border border-gray-500/30">
+                            <iframe
+                              src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&center=${getPropertyValue('location.coordinates.latitude')},${getPropertyValue('location.coordinates.longitude')}&zoom=15&maptype=roadmap`}
+                              width="100%"
+                              height="100%"
+                              style={{ border: 0 }}
+                              allowFullScreen
+                              loading="lazy"
+                              referrerPolicy="no-referrer-when-downgrade"
+                              title="Property Location Map"
+                            />
+                          </div>
+                          
+                          {/* Street View with Overlay Button */}
+                          <div className="relative w-full h-48 rounded-lg overflow-hidden border border-gray-500/30 group">
+                            <img
+                              src={`https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${getPropertyValue('location.coordinates.latitude')},${getPropertyValue('location.coordinates.longitude')}&fov=80&pitch=0&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
+                              alt="Street View"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                              }}
+                            />
+                            <div className="hidden absolute inset-0 bg-gray-700 flex items-center justify-center">
+                              <div className="text-center text-gray-400">
+                                <div className="text-2xl mb-1">🏠</div>
+                                <div className="text-sm">Street View</div>
+                              </div>
+                            </div>
+                            {/* Overlay Button */}
+                            <div className="absolute top-3 left-3">
+                              <a
+                                href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${getPropertyValue('location.coordinates.latitude')},${getPropertyValue('location.coordinates.longitude')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-black/60 hover:bg-black/80 text-white rounded-lg text-xs font-medium transition-all duration-200 backdrop-blur-sm border border-white/20"
+                              >
+                                Open in Maps
+                              </a>
+                            </div>
+                          </div>
                         </div>
-                      )}
-                      {getPropertyValue('tenure.tenure_type') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Tenure:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('tenure.tenure_type')}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('number_of_bedrooms.value') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Beds:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('number_of_bedrooms.value', '0')}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('number_of_bathrooms.value') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Baths:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('number_of_bathrooms.value', '0')}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('internal_area_square_metres') !== 'N/A' && getPropertyValue('internal_area_square_metres') !== '0' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Area:</span>
-                          <span className="text-gray-100 font-medium">{formatArea(getPropertyValue('internal_area_square_metres', '0'))}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('council_tax.council_tax_band') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Tax:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('council_tax.council_tax_band', 'N/A')}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('energy_performance.current_energy_rating') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">EPC:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.current_energy_rating', 'N/A')}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('flood_risk.risk_label') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Flood:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('flood_risk.risk_label', 'N/A')}</span>
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Property Details Subsections */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {subsections[activeSection]
-                      .sort((a, b) => {
-                        const aHasData = hasSubsectionData(a.id)
-                        const bHasData = hasSubsectionData(b.id)
-                        // Sort so that subsections with data come first
-                        if (aHasData && !bHasData) return -1
-                        if (!aHasData && bHasData) return 1
-                        return 0
-                      })
-                      .map((subsection) => {
-                        const hasData = hasSubsectionData(subsection.id)
-                        const isSelected = activeSubsection === subsection.id
-                        return (
-                          <button
-                            key={subsection.id}
-                            onClick={() => handleSubsectionClick(subsection.id)}
-                            disabled={!hasData}
-                            title={!hasData ? 'Not available' : undefined}
-                            className={`backdrop-blur-xl border rounded-xl p-4 text-left transition-all duration-200 group shadow-lg ${
-                              isSelected
-                                ? 'bg-purple-500/20 border-purple-400/50 shadow-purple-500/20'
-                                : hasData 
-                                  ? 'bg-black/20 border-gray-500/30 hover:bg-gray-500/20 cursor-pointer' 
-                                  : 'bg-black/20 border-gray-500/30 opacity-50 cursor-not-allowed'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 mb-2">
-                              <span className="text-xl">{subsection.icon}</span>
-                              <h3 className={`font-semibold transition-colors ${
+                  {/* Details Section */}
+                  <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-6 shadow-lg">
+                    <h2 className="text-lg font-medium text-gray-400 mb-6 uppercase tracking-wide">
+                      DETAILS
+                    </h2>
+                    
+                    {/* Property Details in Single Line */}
+                    <div className="mb-6">
+                      <div className="flex flex-wrap gap-4">
+                        {getPropertyValue('property_type.value') !== 'N/A' && (
+                          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                            <span className="text-gray-400 text-sm">Type:</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('property_type.value')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('construction_age_band') !== 'N/A' && (
+                          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                            <span className="text-gray-400 text-sm">Age:</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('construction_age_band')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('tenure.tenure_type') !== 'N/A' && (
+                          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                            <span className="text-gray-400 text-sm">Tenure:</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('tenure.tenure_type')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('number_of_bedrooms.value') !== 'N/A' && (
+                          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                            <span className="text-gray-400 text-sm">Beds:</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('number_of_bedrooms.value', '0')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('number_of_bathrooms.value') !== 'N/A' && (
+                          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                            <span className="text-gray-400 text-sm">Baths:</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('number_of_bathrooms.value', '0')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('internal_area_square_metres') !== 'N/A' && getPropertyValue('internal_area_square_metres') !== '0' && (
+                          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                            <span className="text-gray-400 text-sm">Area:</span>
+                            <span className="text-gray-100 font-medium">{formatArea(getPropertyValue('internal_area_square_metres', '0'))}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('council_tax.council_tax_band') !== 'N/A' && (
+                          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                            <span className="text-gray-400 text-sm">Tax:</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('council_tax.council_tax_band', 'N/A')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('energy_performance.current_energy_rating') !== 'N/A' && (
+                          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                            <span className="text-gray-400 text-sm">EPC:</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.current_energy_rating', 'N/A')}</span>
+                          </div>
+                        )}
+                        {getPropertyValue('flood_risk.risk_label') !== 'N/A' && (
+                          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
+                            <span className="text-gray-400 text-sm">Flood:</span>
+                            <span className="text-gray-100 font-medium">{getPropertyValue('flood_risk.risk_label', 'N/A')}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Property Details Subsections */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {subsections[activeSection]
+                        .sort((a, b) => {
+                          const aHasData = hasSubsectionData(a.id)
+                          const bHasData = hasSubsectionData(b.id)
+                          // Sort so that subsections with data come first
+                          if (aHasData && !bHasData) return -1
+                          if (!aHasData && bHasData) return 1
+                          return 0
+                        })
+                        .map((subsection) => {
+                          const hasData = hasSubsectionData(subsection.id)
+                          const isSelected = activeSubsection === subsection.id
+                          return (
+                            <button
+                              key={subsection.id}
+                              onClick={() => handleSubsectionClick(subsection.id)}
+                              disabled={!hasData}
+                              title={!hasData ? 'Not available' : undefined}
+                              className={`backdrop-blur-xl border rounded-xl p-4 text-left transition-all duration-200 group shadow-lg ${
                                 isSelected
-                                  ? 'text-purple-200'
+                                  ? 'bg-purple-500/20 border-purple-400/50 shadow-purple-500/20'
                                   : hasData 
-                                    ? 'text-gray-100 group-hover:text-gray-50' 
-                                    : 'text-gray-500'
+                                    ? 'bg-black/20 border-gray-500/30 hover:bg-gray-500/20 cursor-pointer' 
+                                    : 'bg-black/20 border-gray-500/30 opacity-50 cursor-not-allowed'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 mb-2">
+                                <span className="text-xl">{subsection.icon}</span>
+                                <h3 className={`font-semibold transition-colors ${
+                                  isSelected
+                                    ? 'text-purple-200'
+                                    : hasData 
+                                      ? 'text-gray-100 group-hover:text-gray-50' 
+                                      : 'text-gray-500'
+                                }`}>
+                                  {subsection.label}
+                                </h3>
+                              </div>
+                              <p className={`text-sm ${
+                                isSelected
+                                  ? 'text-purple-300'
+                                  : hasData 
+                                    ? 'text-gray-400' 
+                                    : 'text-gray-600'
                               }`}>
-                                {subsection.label}
-                              </h3>
-                            </div>
-                            <p className={`text-sm ${
-                              isSelected
-                                ? 'text-purple-300'
-                                : hasData 
-                                  ? 'text-gray-400' 
-                                  : 'text-gray-600'
-                            }`}>
-                              {subsection.description}
-                            </p>
-                          </button>
-                        )
-                      })}
+                                {subsection.description}
+                              </p>
+                            </button>
+                          )
+                        })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1338,9 +1362,40 @@ export default function DashboardV1() {
                 {activeSection === 'investment-calculator' ? (
                   /* Investment Calculator Section */
                   <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
-                    <div className="flex items-center gap-3 mb-6">
-                      <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
-                      <h3 className="text-lg font-semibold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h3>
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                        <h3 className="text-lg font-semibold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h3>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (confirm('Are you sure you want to reset all calculator data to defaults? This action cannot be undone.')) {
+                            try {
+                              // Reset calculator data to defaults in database
+                              const response = await fetch('/api/calculator/reset', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ uprn }),
+                              })
+                              
+                              if (response.ok) {
+                                // Reload the page to reset the calculator
+                                window.location.reload()
+                              } else {
+                                alert('Failed to reset calculator data. Please try again.')
+                              }
+                            } catch (error) {
+                              console.error('Error resetting calculator data:', error)
+                              alert('Failed to reset calculator data. Please try again.')
+                            }
+                          }
+                        }}
+                        className="px-4 py-2 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 hover:bg-red-500/30 hover:text-red-200 transition-all duration-200 text-sm font-medium"
+                      >
+                        Reset
+                      </button>
                     </div>
                     <InvestmentCalculator uprn={uprn} />
                   </div>
@@ -1467,3 +1522,4 @@ export default function DashboardV1() {
     </div>
   )
 }
+

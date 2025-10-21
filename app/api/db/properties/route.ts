@@ -68,6 +68,80 @@ export async function POST(request: NextRequest) {
     `, [uprn, data, lastFetched || Date.now(), fetchedCount || 1])
 
     const property = result.rows[0]
+    
+    // Also create default calculator entry if it doesn't exist
+    const defaultCalculatorData = {
+      purchaseType: 'mortgage',
+      includeFeesInLoan: false,
+      bridgingDetails: {
+        loanType: 'retained',
+        duration: '',
+        grossLoanPercent: '',
+        monthlyInterest: '',
+        applicationFee: ''
+      },
+      exitStrategy: null,
+      refinanceDetails: {
+        expectedGDV: '',
+        newLoanLTV: '',
+        interestRate: '',
+        brokerFees: '',
+        legalFees: ''
+      },
+      saleDetails: {
+        expectedSalePrice: '',
+        agencyFeePercent: '',
+        legalFees: ''
+      },
+      refurbItems: [{ id: 1, description: '', amount: '' }],
+      fundingSources: [{ id: 1, name: '', amount: '', interestRate: '', duration: '' }],
+      initialCosts: {
+        refurbRepair: '',
+        legal: '',
+        stampDutyPercent: '',
+        ila: '',
+        brokerFees: '',
+        auctionFees: '',
+        findersFee: ''
+      },
+      purchaseFinance: {
+        purchasePrice: '',
+        deposit: '',
+        ltv: '',
+        loanAmount: '',
+        productFee: '',
+        interestRate: ''
+      },
+      monthlyIncome: {
+        rent1: '',
+        rent2: '',
+        rent3: '',
+        rent4: '',
+        rent5: ''
+      },
+      monthlyExpenses: {
+        serviceCharge: '',
+        groundRent: '',
+        maintenancePercent: '',
+        managementPercent: '',
+        insurance: '',
+        mortgagePayment: ''
+      },
+      propertyValue: ''
+    }
+    
+    try {
+      await query(`
+        INSERT INTO calculator_data (uprn, data, last_updated)
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (uprn) DO NOTHING
+      `, [uprn, JSON.stringify(defaultCalculatorData)])
+      console.log(`Created/verified calculator data for UPRN: ${uprn}`)
+    } catch (calcError) {
+      console.error('Error creating calculator data:', calcError)
+      // Don't fail the property save if calculator data creation fails
+    }
+    
     return NextResponse.json({
       uprn: property.uprn,
       data: property.data,
