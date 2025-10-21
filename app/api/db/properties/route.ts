@@ -141,6 +141,19 @@ export async function POST(request: NextRequest) {
       console.error('Error creating calculator data:', calcError)
       // Don't fail the property save if calculator data creation fails
     }
+
+    // Also create default comparables data if it doesn't exist
+    try {
+      await query(`
+        INSERT INTO comparables_data (uprn, selected_comparable_ids, valuation_strategy, calculated_valuation)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (uprn) DO NOTHING
+      `, [uprn, JSON.stringify([]), 'average', null])
+      console.log(`Created/verified comparables data for UPRN: ${uprn}`)
+    } catch (compError) {
+      console.error('Error creating comparables data:', compError)
+      // Don't fail the property save if comparables data creation fails
+    }
     
     return NextResponse.json({
       uprn: property.uprn,

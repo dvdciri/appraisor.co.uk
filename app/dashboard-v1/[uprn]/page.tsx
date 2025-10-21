@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import InvestmentCalculator from '../components/InvestmentCalculator'
+import ComparablesAnalysis from '../components/ComparablesAnalysis'
 
 type Section = 'property-details' | 'market-analysis' | 'sold-comparables' | 'investment-calculator' | 'ai-refurbishment' | 'risk-assessment'
 
@@ -1398,6 +1399,26 @@ export default function DashboardV1() {
                       </button>
                     </div>
                     <InvestmentCalculator uprn={uprn} />
+                  </div>
+                ) : activeSection === 'sold-comparables' ? (
+                  /* Sold Comparables Section */
+                  <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
+                    <div className="flex items-center gap-3 mb-6">
+                      <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                      <h3 className="text-lg font-semibold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h3>
+                    </div>
+                    {propertyData ? (
+                      <ComparablesAnalysis
+                        uprn={uprn}
+                        nearbyTransactions={getPropertyValue('nearby_completed_transactions') || []}
+                        subjectPropertySqm={parseFloat(getPropertyValue('internal_area_square_metres', '0'))}
+                        subjectPropertyStreet={getPropertyValue('address.simplified_format.street', '')}
+                      />
+                    ) : (
+                      <div className="text-center py-8 text-gray-400">
+                        Loading property data...
+                      </div>
+                    )}
                   </div>
                 ) : (
                   /* Other Sections - Empty Layout */

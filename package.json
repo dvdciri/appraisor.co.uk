@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "backfill-comparables": "node scripts/backfill-comparables.mjs",
+    "backfill-calculator": "node scripts/backfill-calculator.mjs",
+    "backfill-all": "node scripts/backfill-all.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -19,6 +22,7 @@
     "dotenv": "^17.2.3",
     "lucide-react": "^0.544.0",
     "next": "14.0.0",
+    "node-fetch": "^3.3.2",
     "openai": "^4.67.3",
     "pg": "^8.16.3",
     "react": "^18",

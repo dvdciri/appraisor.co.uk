@@ -21,10 +21,22 @@ CREATE TABLE IF NOT EXISTS calculator_data (
     user_id UUID NULL -- For future multi-user support
 );
 
+-- Comparables data table: Selected comparables and valuation strategy per property
+CREATE TABLE IF NOT EXISTS comparables_data (
+    uprn VARCHAR(50) PRIMARY KEY,
+    selected_comparable_ids JSONB DEFAULT '[]'::jsonb,
+    valuation_strategy VARCHAR(20) DEFAULT 'average' CHECK (valuation_strategy IN ('average', 'price_per_sqm')),
+    calculated_valuation DECIMAL(15,2) NULL,
+    last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    user_id UUID NULL -- For future multi-user support
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_properties_user_id ON properties(user_id);
 CREATE INDEX IF NOT EXISTS idx_properties_last_fetched ON properties(last_fetched);
 CREATE INDEX IF NOT EXISTS idx_calculator_data_user_id ON calculator_data(user_id);
+CREATE INDEX IF NOT EXISTS idx_comparables_data_user_id ON comparables_data(user_id);
 
 -- Function to update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -39,5 +51,8 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_properties_updated_at BEFORE UPDATE ON properties
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_user_analyses_updated_at BEFORE UPDATE ON user_analyses
+CREATE TRIGGER update_calculator_data_updated_at BEFORE UPDATE ON calculator_data
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_comparables_data_updated_at BEFORE UPDATE ON comparables_data
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
