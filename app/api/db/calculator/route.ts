@@ -1,22 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '../../../../lib/db/client'
 
-// GET - fetch calculator data by analysis ID
+// GET - fetch calculator data by UPRN
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const analysisId = searchParams.get('id')
+    const uprn = searchParams.get('uprn') || searchParams.get('id') // Backward compatibility
 
-    if (!analysisId) {
+    if (!uprn) {
       return NextResponse.json(
-        { error: 'Analysis ID is required' },
+        { error: 'UPRN is required' },
         { status: 400 }
       )
     }
 
     const result = await query(
-      'SELECT data, updated_at FROM calculator_data WHERE analysis_id = $1',
-      [analysisId]
+      'SELECT data, last_updated FROM calculator_data WHERE uprn = $1',
+      [uprn]
     )
 
     if (result.rows.length === 0) {
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const calculatorData = result.rows[0]
     return NextResponse.json({
       data: calculatorData.data,
-      lastUpdated: calculatorData.updated_at
+      lastUpdated: calculatorData.last_updated
     })
   } catch (error) {
     console.error('Error fetching calculator data:', error)
@@ -43,32 +43,33 @@ export async function GET(request: NextRequest) {
 // POST - save/update calculator data
 export async function POST(request: NextRequest) {
   try {
-    const { analysisId, data } = await request.json()
+    const { uprn, analysisId, data } = await request.json()
+    const propertyUprn = uprn || analysisId // Backward compatibility
 
-    if (!analysisId || !data) {
+    if (!propertyUprn || !data) {
       return NextResponse.json(
-        { error: 'Analysis ID and data are required' },
+        { error: 'UPRN and data are required' },
         { status: 400 }
       )
     }
 
-    // No need to check for analysis existence since calculator_data is now independent
+    // No need to check for property existence since calculator_data is now independent
 
     // Use upsert (INSERT ... ON CONFLICT UPDATE)
     const result = await query(`
-      INSERT INTO calculator_data (analysis_id, data, updated_at)
+      INSERT INTO calculator_data (uprn, data, last_updated)
       VALUES ($1, $2, NOW())
-      ON CONFLICT (analysis_id) 
+      ON CONFLICT (uprn) 
       DO UPDATE SET 
         data = EXCLUDED.data,
-        updated_at = NOW()
+        last_updated = NOW()
       RETURNING *
-    `, [analysisId, data])
+    `, [propertyUprn, data])
 
     const calculatorData = result.rows[0]
     return NextResponse.json({
       data: calculatorData.data,
-      lastUpdated: calculatorData.updated_at
+      lastUpdated: calculatorData.last_updated
     })
   } catch (error) {
     console.error('Error saving calculator data:', error)
@@ -83,18 +84,18 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const analysisId = searchParams.get('id')
+    const uprn = searchParams.get('uprn') || searchParams.get('id') // Backward compatibility
 
-    if (!analysisId) {
+    if (!uprn) {
       return NextResponse.json(
-        { error: 'Analysis ID is required' },
+        { error: 'UPRN is required' },
         { status: 400 }
       )
     }
 
     await query(
-      'DELETE FROM calculator_data WHERE analysis_id = $1',
-      [analysisId]
+      'DELETE FROM calculator_data WHERE uprn = $1',
+      [uprn]
     )
 
     return NextResponse.json({ success: true })

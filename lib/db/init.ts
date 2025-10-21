@@ -4,6 +4,14 @@ export async function initializeDatabase(): Promise<void> {
   try {
     console.log('Initializing database...')
     
+    // First, drop the old calculator_data table if it exists (to handle schema migration)
+    try {
+      await query('DROP TABLE IF EXISTS calculator_data CASCADE')
+      console.log('Dropped old calculator_data table for migration')
+    } catch (error) {
+      console.log('No existing calculator_data table to drop')
+    }
+    
     // Embedded schema to avoid file system issues in production
     const schema = `
 CREATE TABLE IF NOT EXISTS properties (
@@ -17,11 +25,11 @@ CREATE TABLE IF NOT EXISTS properties (
 );
 
 CREATE TABLE IF NOT EXISTS calculator_data (
-    analysis_id VARCHAR(255) PRIMARY KEY,
+    uprn VARCHAR(50) PRIMARY KEY,
     data JSONB NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    user_id VARCHAR(255)
+    last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    user_id UUID NULL
 );
 
 -- Create indexes for faster lookups

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import InvestmentCalculator from '../components/InvestmentCalculator'
 
 type Section = 'property-details' | 'market-analysis' | 'sold-comparables' | 'investment-calculator' | 'ai-refurbishment' | 'risk-assessment'
 
@@ -1332,20 +1333,34 @@ export default function DashboardV1() {
                 </div>
               </div>
             ) : (
-                  /* Other Sections - Empty Layout */
+                  /* Other Sections */
               <div className="space-y-6">
-                {/* Section Header */}
-                <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
-                    <h3 className="text-lg font-semibold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h3>
+                {activeSection === 'investment-calculator' ? (
+                  /* Investment Calculator Section */
+                  <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
+                    <div className="flex items-center gap-3 mb-6">
+                      <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                      <h3 className="text-lg font-semibold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h3>
+                    </div>
+                    <InvestmentCalculator uprn={uprn} />
                   </div>
-                  <div className="text-center py-12">
-                    <div className="text-4xl mb-4 opacity-50">📊</div>
+                ) : (
+                  /* Other Sections - Empty Layout */
+                  <>
+                    {/* Section Header */}
+                    <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                        <h3 className="text-lg font-semibold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h3>
+                      </div>
+                      <div className="text-center py-12">
+                        <div className="text-4xl mb-4 opacity-50">📊</div>
                         <p className="text-gray-400">This section is ready for implementation...</p>
                         <p className="text-sm text-gray-500 mt-2">Start building your content here</p>
-                  </div>
-                </div>
+                      </div>
+                    </div>
+                  </>
+                )}
                   </div>
                 )}
               </div>

@@ -111,8 +111,8 @@ export interface PersistedCalculatorData {
 
 
 // Calculator data persistence (per property) - now using API routes
-export async function saveCalculatorData(propertyId: string, calculatorData: CalculatorData): Promise<void> {
-  if (!propertyId) return
+export async function saveCalculatorData(uprn: string, calculatorData: CalculatorData): Promise<void> {
+  if (!uprn) return
   
   try {
     const response = await fetch('/api/db/calculator', {
@@ -121,7 +121,7 @@ export async function saveCalculatorData(propertyId: string, calculatorData: Cal
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        analysisId: propertyId,
+        uprn: uprn,
         data: calculatorData
       }),
     })
@@ -135,11 +135,11 @@ export async function saveCalculatorData(propertyId: string, calculatorData: Cal
   }
 }
 
-export async function loadCalculatorData(propertyId: string): Promise<CalculatorData | null> {
-  if (!propertyId) return null
+export async function loadCalculatorData(uprn: string): Promise<CalculatorData | null> {
+  if (!uprn) return null
   
   try {
-    const response = await fetch(`/api/db/calculator?id=${encodeURIComponent(propertyId)}`)
+    const response = await fetch(`/api/db/calculator?uprn=${encodeURIComponent(uprn)}`)
     
     if (response.status === 404) {
       return null
@@ -166,10 +166,10 @@ export function clearAllPersistedData(): void {
 // REMOVED: Deprecated property data store functions
 
 // Delete a property from database
-export async function deleteProperty(propertyId: string): Promise<void> {
-  // Delete calculator data for this analysis
+export async function deleteProperty(uprn: string): Promise<void> {
+  // Delete calculator data for this property
   try {
-    const response = await fetch(`/api/db/calculator?id=${encodeURIComponent(propertyId)}`, {
+    const response = await fetch(`/api/db/calculator?uprn=${encodeURIComponent(uprn)}`, {
       method: 'DELETE',
     })
 

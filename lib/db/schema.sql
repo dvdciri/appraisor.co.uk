@@ -12,9 +12,9 @@ CREATE TABLE IF NOT EXISTS properties (
     user_id UUID NULL -- For future multi-user support
 );
 
--- Calculator data table: Financial calculations per analysis
+-- Calculator data table: Financial calculations per property (keyed by UPRN)
 CREATE TABLE IF NOT EXISTS calculator_data (
-    analysis_id VARCHAR(100) PRIMARY KEY,
+    uprn VARCHAR(50) PRIMARY KEY,
     data JSONB NOT NULL,
     last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
