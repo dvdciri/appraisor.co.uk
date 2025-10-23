@@ -177,13 +177,13 @@ export default function LandingPage() {
         {/* Header */}
         <header className="p-6" role="banner">
           <div className="flex items-center justify-center">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden" aria-label="Appraisor logo">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-20 h-20 rounded-xl shadow-lg overflow-hidden" aria-label="Appraisor logo">
                 <Image
                   src="/logo.png"
                   alt="Appraisor Logo"
-                  width={40}
-                  height={40}
+                  width={80}
+                  height={80}
                   className="w-full h-full object-cover"
                 />
               </div>
