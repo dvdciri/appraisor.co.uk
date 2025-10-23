@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const result = await db.query('SELECT COUNT(*) as total FROM subscriptions')
     const subscriberCount = parseInt(result.rows[0].total) || 0
     
-    return NextResponse.json(
+    const response = NextResponse.json(
       { 
         subscriber_count: subscriberCount,
         max_free_spots: CONFIG.MAX_FREE_SPOTS,
@@ -19,6 +19,13 @@ export async function GET(request: NextRequest) {
       },
       { status: 200 }
     )
+
+    // Add cache-busting headers to ensure fresh data
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
+
+    return response
 
   } catch (error) {
     console.error('Error fetching subscriber count from database:', error)
