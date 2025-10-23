@@ -6,10 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "backfill-comparables": "node scripts/backfill-comparables.mjs",
-    "backfill-calculator": "node scripts/backfill-calculator.mjs",
-    "backfill-all": "node scripts/backfill-all.mjs"
+    "lint": "next lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
