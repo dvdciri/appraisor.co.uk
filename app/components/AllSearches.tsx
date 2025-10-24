@@ -57,12 +57,8 @@ export default function AllSearches({ onBack }: AllSearchesProps) {
 
   if (loading) {
     return (
-      <div className="relative rounded-2xl p-6 shadow-2xl backdrop-blur-md overflow-hidden">
-        {/* Simple background for all searches box */}
-        <div className="absolute inset-0 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'rgba(30, 15, 45, 0.6)' }} />
-        
-        {/* Content with proper z-index */}
-        <div className="relative z-10">
+      <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl overflow-hidden">
+        <div>
           <div className="animate-pulse">
             <div className="h-4 bg-gray-700 rounded w-1/3 mb-2"></div>
             <div className="space-y-2">
@@ -76,12 +72,8 @@ export default function AllSearches({ onBack }: AllSearchesProps) {
   }
 
   return (
-    <div className="relative rounded-2xl p-6 shadow-2xl backdrop-blur-md overflow-hidden">
-      {/* Simple background for all searches box */}
-      <div className="absolute inset-0 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'rgba(30, 15, 45, 0.6)' }} />
-      
-      {/* Content with proper z-index */}
-      <div className="relative z-10">
+    <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl overflow-hidden">
+      <div>
       {/* Header with back button */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

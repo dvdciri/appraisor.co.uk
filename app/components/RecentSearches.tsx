@@ -42,12 +42,8 @@ export default function RecentSearches({ onShowAll }: RecentSearchesProps) {
 
   if (loading) {
     return (
-      <div className="relative rounded-2xl p-8 shadow-2xl animate-enter-subtle-delayed flex flex-col overflow-hidden backdrop-blur-md">
-        {/* Simple background for recent searches box */}
-        <div className="absolute inset-0 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'rgba(30, 15, 45, 0.6)' }} />
-        
-        {/* Content with proper z-index */}
-        <div className="relative z-10 flex flex-col h-full">
+      <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-8 shadow-2xl animate-enter-subtle-delayed flex flex-col overflow-hidden">
+        <div className="flex flex-col h-full">
           <div className="animate-pulse">
             <div className="h-4 bg-gray-700 rounded w-1/3 mb-2"></div>
             <div className="space-y-2">
@@ -62,12 +58,8 @@ export default function RecentSearches({ onShowAll }: RecentSearchesProps) {
 
   if (searches.length === 0) {
     return (
-      <div className="relative rounded-2xl p-8 shadow-2xl animate-enter-subtle-delayed flex flex-col overflow-hidden backdrop-blur-md">
-        {/* Simple background for recent searches box */}
-        <div className="absolute inset-0 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'rgba(30, 15, 45, 0.6)' }} />
-        
-        {/* Content with proper z-index */}
-        <div className="relative z-10 flex flex-col h-full">
+      <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-8 shadow-2xl animate-enter-subtle-delayed flex flex-col overflow-hidden">
+        <div className="flex flex-col h-full">
           <h3 className="text-white font-medium mb-2">Recently Viewed</h3>
           <p className="text-gray-400 text-sm">No recent searches yet</p>
         </div>
@@ -76,9 +68,8 @@ export default function RecentSearches({ onShowAll }: RecentSearchesProps) {
   }
 
   return (
-    <div className="relative rounded-2xl p-8 shadow-2xl animate-enter-subtle-delayed flex flex-col overflow-hidden backdrop-blur-md" style={{ backgroundColor: 'rgba(30, 15, 45, 0.6)' }}>
-      {/* Content with proper z-index */}
-      <div className="relative z-10 flex flex-col h-full">
+    <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-8 shadow-2xl animate-enter-subtle-delayed flex flex-col overflow-hidden">
+      <div className="flex flex-col h-full">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-white font-medium">Recently Viewed</h3>
           {searches.length > 3 && onShowAll && (
