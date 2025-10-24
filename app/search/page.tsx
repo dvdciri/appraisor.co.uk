@@ -274,12 +274,15 @@ export default function SearchPage() {
       // Save to recent analyses
       const analysisId = await saveToRecentAnalyses(data, address, postcode)
       
-      setSuccessMessage('Property found successfully! Redirecting to analysis...')
-      
-      // Redirect to analysis page
-      setTimeout(() => {
-        router.push(`/analyse/${analysisId}`)
-      }, 1500)
+      // Extract UPRN and redirect to dashboard with UPRN
+      const uprn = extractUPRN(data)
+      if (uprn) {
+        router.push(`/dashboard/${uprn}`)
+      } else {
+        console.error('Failed to extract UPRN from property data')
+        setErrorMessage('Failed to process property data. Please try again.')
+        setCurrentStep('address')
+      }
       
     } catch (error) {
       console.error('Error analyzing property:', error)

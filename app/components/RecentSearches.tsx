@@ -33,7 +33,7 @@ export default function RecentSearches() {
   }, [])
 
   const handleSearchClick = (uprn: string) => {
-    router.push(`/dashboard-v1/${uprn}`)
+    router.push(`/dashboard/${uprn}`)
   }
 
   if (loading) {

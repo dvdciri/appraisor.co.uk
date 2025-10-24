@@ -131,12 +131,9 @@ export async function POST(request: NextRequest) {
     }
     
     try {
-      await query(`
-        INSERT INTO calculator_data (uprn, data, last_updated)
-        VALUES ($1, $2, NOW())
-        ON CONFLICT (uprn) DO NOTHING
-      `, [uprn, JSON.stringify(defaultCalculatorData)])
-      console.log(`Created/verified calculator data for UPRN: ${uprn}`)
+      // Note: calculator_data requires user_id, but this is a generic property save
+      // We'll skip creating calculator data here since it needs a specific user
+      console.log(`Skipping calculator data creation for UPRN: ${uprn} - requires user context`)
     } catch (calcError) {
       console.error('Error creating calculator data:', calcError)
       // Don't fail the property save if calculator data creation fails
@@ -144,12 +141,9 @@ export async function POST(request: NextRequest) {
 
     // Also create default comparables data if it doesn't exist
     try {
-      await query(`
-        INSERT INTO comparables_data (uprn, selected_comparable_ids, valuation_strategy, calculated_valuation)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (uprn) DO NOTHING
-      `, [uprn, JSON.stringify([]), 'average', null])
-      console.log(`Created/verified comparables data for UPRN: ${uprn}`)
+      // Note: comparables_data requires user_id, but this is a generic property save
+      // We'll skip creating comparables data here since it needs a specific user
+      console.log(`Skipping comparables data creation for UPRN: ${uprn} - requires user context`)
     } catch (compError) {
       console.error('Error creating comparables data:', compError)
       // Don't fail the property save if comparables data creation fails

@@ -23,7 +23,30 @@ export async function POST(request: NextRequest) {
 
     const realData = await fetchRealPropertyDetails(address, postcode)
     
-    // Record search in user search history
+    // Save property data first to ensure it exists before recording search history
+    const uprn = realData?.data?.attributes?.identities?.ordnance_survey?.uprn
+    if (uprn) {
+      try {
+        // Save property data to ensure it exists in the database
+        await query(`
+          INSERT INTO properties (uprn, data, last_fetched, fetched_count, updated_at)
+          VALUES ($1, $2, $3, $4, NOW())
+          ON CONFLICT (uprn) 
+          DO UPDATE SET 
+            data = EXCLUDED.data,
+            last_fetched = EXCLUDED.last_fetched,
+            fetched_count = properties.fetched_count + 1,
+            updated_at = NOW()
+        `, [uprn, JSON.stringify(realData), Date.now(), 1])
+        
+        console.log(`Saved property data for UPRN: ${uprn}`)
+      } catch (propertyError) {
+        console.error('Error saving property data:', propertyError)
+        // Continue even if property save fails
+      }
+    }
+    
+    // Record search in user search history (after property is saved)
     try {
       // Get user_id from database
       const userResult = await query(
@@ -31,21 +54,18 @@ export async function POST(request: NextRequest) {
         [session.user.email]
       )
 
-      if (userResult.rows.length > 0) {
+      if (userResult.rows.length > 0 && uprn) {
         const userId = userResult.rows[0].user_id
-        const uprn = realData?.data?.attributes?.identities?.ordnance_survey?.uprn
 
-        if (uprn) {
-          // Insert search history record
-          await query(`
-            INSERT INTO user_search_history (user_id, uprn)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id, uprn) 
-            DO UPDATE SET searched_at = NOW()
-          `, [userId, uprn])
-          
-          console.log(`Recorded search for user ${userId}, UPRN: ${uprn}`)
-        }
+        // Insert search history record
+        await query(`
+          INSERT INTO user_search_history (user_id, uprn)
+          VALUES ($1, $2)
+          ON CONFLICT (user_id, uprn) 
+          DO UPDATE SET searched_at = NOW()
+        `, [userId, uprn])
+        
+        console.log(`Recorded search for user ${userId}, UPRN: ${uprn}`)
       }
     } catch (historyError) {
       console.error('Error recording search history:', historyError)
