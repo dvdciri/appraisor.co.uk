@@ -25,7 +25,7 @@ const subsections = {
     { id: 'ownership', label: 'Ownership & Occupancy', icon: '🏠', description: 'Tenure type, ownership status, occupancy, and legal information' },
     { id: 'construction', label: 'Construction Details', icon: '🏗️', description: 'Building materials, construction age, and structural details' },
     { id: 'plot', label: 'Plot & Outdoor Space', icon: '🌳', description: 'Land area, garden space, and outdoor amenities' },
-    { id: 'utilities', label: 'Utilities & Services', icon: '⚡', description: 'Water, drainage, heating, and utility connections' },
+    { id: 'utilities', label: 'Utilities & Services', icon: '🔧', description: 'Water, drainage, heating, and utility connections' },
     { id: 'energy', label: 'EPC Rating', icon: '⚡', description: 'Energy Performance Certificate ratings and efficiency details' },
   ],
 }
@@ -831,7 +831,7 @@ export default function DashboardV1() {
   const searchParams = useSearchParams()
   const [activeSection, setActiveSection] = useState<Section>('property-details')
   const [rightPanelOpen, setRightPanelOpen] = useState(false)
-  const [activeSubsection, setActiveSubsection] = useState<string | null>(null)
+  const [selectedSubsection, setSelectedSubsection] = useState<string | null>(null)
   const [comparablesPanelOpen, setComparablesPanelOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null)
   const [propertyData, setPropertyData] = useState<PropertyData | null>(null)
@@ -883,19 +883,11 @@ export default function DashboardV1() {
       const newIsLargeScreen = window.innerWidth >= 1920
       setIsLargeScreen(prevIsLargeScreen => {
         if (newIsLargeScreen !== prevIsLargeScreen) {
-          // When expanding to large screen, close the floating panels
-          if (newIsLargeScreen) {
-            setRightPanelOpen(false)
-            setComparablesPanelOpen(false)
-          }
-          // When shrinking to small screen, deselect subsection and hide panels
-          if (!newIsLargeScreen) {
-            // Batch the state updates to prevent race conditions
-            setActiveSubsection(null)
-            setRightPanelOpen(false)
-            setSelectedTransaction(null)
-            setComparablesPanelOpen(false)
-          }
+          // When changing screen size, close the floating panels
+          setRightPanelOpen(false)
+          setComparablesPanelOpen(false)
+          setSelectedSubsection(null)
+          setSelectedTransaction(null)
           return newIsLargeScreen
         }
         return prevIsLargeScreen
@@ -1002,28 +994,19 @@ export default function DashboardV1() {
 
   const handleSubsectionClick = (subsectionId: string) => {
     if (activeSection === 'property-details' && hasSubsectionData(subsectionId)) {
-    setActiveSubsection(subsectionId)
-      // Only open mobile overlay on small screens
-      if (!isLargeScreen) {
-    setRightPanelOpen(true)
-      }
+      setSelectedSubsection(subsectionId)
+      setRightPanelOpen(true)
     }
   }
 
   const handleTransactionSelect = (transaction: any) => {
     setSelectedTransaction(transaction)
     setComparablesPanelOpen(true)
-    // Only open mobile overlay on small screens
-    if (!isLargeScreen) {
-      setComparablesPanelOpen(true)
-    }
   }
 
   const handleCloseComparablesPanel = () => {
     setComparablesPanelOpen(false)
-    if (!isLargeScreen) {
-      setSelectedTransaction(null)
-    }
+    setSelectedTransaction(null)
   }
 
   // Show loading while checking authentication
@@ -1182,17 +1165,17 @@ export default function DashboardV1() {
                             updateSectionInUrl(section.id)
                             if (section.id !== 'property-details') {
                               setRightPanelOpen(false)
-                              setActiveSubsection(null)
+                              setSelectedSubsection(null)
                             }
                             if (section.id !== 'sold-comparables') {
                               setComparablesPanelOpen(false)
                               setSelectedTransaction(null)
                             }
                           }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 ${
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border ${
                             activeSection === section.id
-                              ? 'bg-purple-500/20 text-purple-100 border border-purple-400/30'
-                              : 'text-gray-300 hover:text-gray-100 hover:bg-gray-500/10'
+                              ? 'bg-purple-500/20 text-purple-100 border-purple-400/30'
+                              : 'text-gray-300 hover:text-gray-100 hover:bg-gray-500/10 border-transparent'
                           }`}
                         >
                           <span className="text-lg">{section.icon}</span>
@@ -1424,6 +1407,62 @@ export default function DashboardV1() {
 
                 
 
+                  {/* Property Details Subsections - Plot, Utilities, Energy */}
+                  <div className="mb-16">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {subsections[activeSection]
+                      .filter(subsection => ['energy', 'plot', 'utilities'].includes(subsection.id))
+                      .sort((a, b) => {
+                        // First sort by predefined order: energy, plot, utilities
+                        const order = ['energy', 'plot', 'utilities']
+                        const aIndex = order.indexOf(a.id)
+                        const bIndex = order.indexOf(b.id)
+                        if (aIndex !== bIndex) return aIndex - bIndex
+                        
+                        // Then sort by data availability
+                        const aHasData = hasSubsectionData(a.id)
+                        const bHasData = hasSubsectionData(b.id)
+                        if (aHasData && !bHasData) return -1
+                        if (!aHasData && bHasData) return 1
+                        return 0
+                      })
+                      .map((subsection) => {
+                        const hasData = hasSubsectionData(subsection.id)
+                        return (
+                          <button
+                            key={subsection.id}
+                            onClick={() => handleSubsectionClick(subsection.id)}
+                            disabled={!hasData}
+                            title={!hasData ? 'Not available' : undefined}
+                            className={`backdrop-blur-xl border rounded-xl p-4 text-left transition-all duration-200 group shadow-lg ${
+                              hasData 
+                                ? 'bg-black/20 border-gray-500/30 hover:bg-gray-500/20 cursor-pointer' 
+                                : 'bg-black/20 border-gray-500/30 opacity-50 cursor-not-allowed'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="text-xl">{subsection.icon}</span>
+                              <h3 className={`font-semibold transition-colors ${
+                                hasData 
+                                  ? 'text-gray-100 group-hover:text-gray-50' 
+                                  : 'text-gray-500'
+                              }`}>
+                                {subsection.label}
+                              </h3>
+                            </div>
+                            <p className={`text-sm ${
+                              hasData 
+                                ? 'text-gray-400' 
+                                : 'text-gray-600'
+                            }`}>
+                              {subsection.description}
+                            </p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
                   {/* Ownership & Construction Details - Side by Side */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
                     {/* Ownership & Occupancy Section */}
@@ -1441,66 +1480,6 @@ export default function DashboardV1() {
                         <ConstructionDataDisplay propertyData={propertyData} getPropertyValue={getPropertyValue} />
                       </div>
                     )}
-                  </div>
-
-                  {/* More Details Section */}
-                  <div className="mt-16 mb-12">
-                
-                    
-                    {/* Property Details Subsections - Only remaining three */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {subsections[activeSection]
-                      .filter(subsection => ['plot', 'utilities', 'energy'].includes(subsection.id))
-                      .sort((a, b) => {
-                        const aHasData = hasSubsectionData(a.id)
-                        const bHasData = hasSubsectionData(b.id)
-                        // Sort so that subsections with data come first
-                        if (aHasData && !bHasData) return -1
-                        if (!aHasData && bHasData) return 1
-                        return 0
-                      })
-                      .map((subsection) => {
-                        const hasData = hasSubsectionData(subsection.id)
-                        const isSelected = activeSubsection === subsection.id
-                        return (
-                          <button
-                            key={subsection.id}
-                            onClick={() => handleSubsectionClick(subsection.id)}
-                            disabled={!hasData}
-                            title={!hasData ? 'Not available' : undefined}
-                            className={`backdrop-blur-xl border rounded-xl p-4 text-left transition-all duration-200 group shadow-lg ${
-                              isSelected
-                                ? 'bg-purple-500/20 border-purple-400/50 shadow-purple-500/20'
-                                : hasData 
-                                  ? 'bg-black/20 border-gray-500/30 hover:bg-gray-500/20 cursor-pointer' 
-                                  : 'bg-black/20 border-gray-500/30 opacity-50 cursor-not-allowed'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 mb-2">
-                              <span className="text-xl">{subsection.icon}</span>
-                              <h3 className={`font-semibold transition-colors ${
-                                isSelected
-                                  ? 'text-purple-200'
-                                  : hasData 
-                                    ? 'text-gray-100 group-hover:text-gray-50' 
-                                    : 'text-gray-500'
-                              }`}>
-                                {subsection.label}
-                              </h3>
-                            </div>
-                            <p className={`text-sm ${
-                              isSelected
-                                ? 'text-purple-300'
-                                : hasData 
-                                  ? 'text-gray-400' 
-                                  : 'text-gray-600'
-                            }`}>
-                              {subsection.description}
-                            </p>
-                          </button>
-                        )
-                      })}
-                    </div>
                   </div>
                         </div>
                       </div>
@@ -1595,21 +1574,21 @@ export default function DashboardV1() {
         
         {/* Generic Right Panel for Property Details */}
         <GenericPanel
-            isOpen={activeSection === 'property-details' && (!!activeSubsection || rightPanelOpen)}
+            isOpen={activeSection === 'property-details' && rightPanelOpen}
             onClose={() => {
               setRightPanelOpen(false)
-              setActiveSubsection(null)
+              setSelectedSubsection(null)
             }}
-            title={subsections[activeSection as keyof typeof subsections]?.find((s: any) => s.id === activeSubsection)?.label || 'Property Details'}
+            title={subsections[activeSection as keyof typeof subsections]?.find((s: any) => s.id === selectedSubsection)?.label || 'Property Details'}
             isLargeScreen={isLargeScreen}
           >
             <div className="space-y-6">
               {/* Property Details Subsections */}
-              {activeSection === 'property-details' && activeSubsection && propertyData && (
-                renderSubsectionContent(activeSubsection)
+              {activeSection === 'property-details' && selectedSubsection && propertyData && (
+                renderSubsectionContent(selectedSubsection)
               )}
               {/* No subsection selected */}
-              {activeSection === 'property-details' && !activeSubsection && (
+              {activeSection === 'property-details' && !selectedSubsection && (
                 <div className="text-center py-16">
                   <div className="text-6xl mb-6 opacity-60">🔍</div>
                   <h3 className="text-xl font-semibold text-gray-200 mb-3">Ready to Explore?</h3>
