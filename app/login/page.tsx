@@ -1,11 +1,39 @@
 'use client'
 
-import { signIn } from 'next-auth/react'
+import { signIn, useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 import Image from 'next/image'
 
 export default function LoginPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+
+  // Redirect to search if already authenticated
+  useEffect(() => {
+    if (status === 'loading') return // Still loading
+    if (session) {
+      router.push('/search')
+      return
+    }
+  }, [session, status, router])
+
   const handleGoogleSignIn = () => {
     signIn('google', { callbackUrl: '/search' })
+  }
+
+  // Show loading while checking authentication
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-bg-subtle border-t-accent"></div>
+      </div>
+    )
+  }
+
+  // Don't render if already authenticated (will redirect)
+  if (session) {
+    return null
   }
 
   return (
