@@ -909,7 +909,7 @@ export default function DashboardV1() {
       try {
         setLoading(true)
         setError(null)
-        const response = await fetch(`/api/db/properties?uprn=${uprn}`)
+        const response = await fetch(`/api/properties/${uprn}`)
         
         if (!response.ok) {
           throw new Error(`Failed to fetch property data: ${response.statusText}`)

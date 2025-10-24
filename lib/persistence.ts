@@ -211,34 +211,20 @@ export async function savePropertiesStore(store: PropertiesStore): Promise<void>
 export async function saveGenericProperty(uprn: string, propertyData: any): Promise<void> {
   if (!uprn) return
   
-  try {
-    const response = await fetch('/api/db/properties', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        uprn,
-        data: propertyData,
-        lastFetched: Date.now(),
-        fetchedCount: 1
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to save property: ${response.statusText}`)
-    }
-  } catch (error) {
-    console.error('Failed to save property to database:', error)
-    throw error
-  }
+  // Note: This function is now deprecated since property saving is handled by the search endpoint
+  // The search endpoint handles both caching logic and saving fresh data
+  console.warn('saveGenericProperty is deprecated - property saving is now handled by /api/property/search')
+  
+  // For backward compatibility, we'll just log that this was called
+  // In practice, this should not be called anymore since the search endpoint handles saving
+  console.log(`Property data for UPRN ${uprn} would have been saved, but this is now handled by the search endpoint`)
 }
 
 export async function getGenericProperty(uprn: string): Promise<GenericPropertyData | null> {
   if (!uprn) return null
   
   try {
-    const response = await fetch(`/api/db/properties?uprn=${encodeURIComponent(uprn)}`)
+    const response = await fetch(`/api/properties/${encodeURIComponent(uprn)}`)
     
     if (response.status === 404) {
       return null

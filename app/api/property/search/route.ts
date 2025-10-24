@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
 import { getServerSession } from 'next-auth'
 import { query } from '@/lib/db/client'
 import { ensureAppReady } from '@/lib/db/startup'
@@ -21,58 +19,105 @@ export async function POST(request: NextRequest) {
     
     const { address, postcode } = await request.json()
 
-    const realData = await fetchRealPropertyDetails(address, postcode)
+    // First, try to get the UPRN from the address/postcode to check if we have cached data
+    let uprn: string | null = null
+    let realData: any = null
+    let wasCached = false
+
+    try {
+      // Try to find existing property by address/postcode first
+      const existingPropertyResult = await query(`
+        SELECT uprn, data, last_fetched 
+        FROM properties 
+        WHERE data->'data'->'attributes'->'address'->'street_group_format'->>'address_lines' ILIKE $1
+        AND data->'data'->'attributes'->'address'->'street_group_format'->>'postcode' ILIKE $2
+        ORDER BY last_fetched DESC
+        LIMIT 1
+      `, [`%${address}%`, postcode])
+
+      if (existingPropertyResult.rows.length > 0) {
+        // We found existing data, use it
+        const existingProperty = existingPropertyResult.rows[0]
+        uprn = existingProperty.uprn
+        realData = existingProperty.data
+        wasCached = true
+        console.log(`✅ Using cached property data for UPRN: ${uprn}`)
+        console.log(`📅 Data was last fetched: ${existingProperty.last_fetched}`)
+      } else {
+        console.log('🔍 No cached data found, will fetch from external API...')
+      }
+    } catch (dbError) {
+      console.log('Could not check for existing property data:', dbError)
+      // Continue to fetch from API
+    }
+
+    // If we don't have cached data, fetch from external API
+    if (!realData) {
+      console.log('🔄 Fetching fresh data from external API...')
+      realData = await fetchRealPropertyDetails(address, postcode)
+      
+      // Extract UPRN from fresh API data
+      uprn = realData?.data?.attributes?.identities?.ordnance_survey?.uprn
+      
+      if (uprn) {
+        try {
+          // Save the fresh property data to database
+          await query(`
+            INSERT INTO properties (uprn, data, last_fetched, fetched_count, updated_at)
+            VALUES ($1, $2, $3, $4, NOW())
+            ON CONFLICT (uprn) 
+            DO UPDATE SET 
+              data = EXCLUDED.data,
+              last_fetched = EXCLUDED.last_fetched,
+              fetched_count = properties.fetched_count + 1,
+              updated_at = NOW()
+          `, [uprn, JSON.stringify(realData), Date.now(), 1])
+          
+          console.log(`💾 Saved fresh property data for UPRN: ${uprn}`)
+        } catch (propertyError) {
+          console.error('Error saving property data:', propertyError)
+          // Continue even if property save fails
+        }
+      }
+    } else {
+      console.log('✅ Using cached data - no database save needed')
+    }
     
-    // Save property data first to ensure it exists before recording search history
-    const uprn = realData?.data?.attributes?.identities?.ordnance_survey?.uprn
+    // Record search in user search history (regardless of whether data was cached or fresh)
     if (uprn) {
       try {
-        // Save property data to ensure it exists in the database
-        await query(`
-          INSERT INTO properties (uprn, data, last_fetched, fetched_count, updated_at)
-          VALUES ($1, $2, $3, $4, NOW())
-          ON CONFLICT (uprn) 
-          DO UPDATE SET 
-            data = EXCLUDED.data,
-            last_fetched = EXCLUDED.last_fetched,
-            fetched_count = properties.fetched_count + 1,
-            updated_at = NOW()
-        `, [uprn, JSON.stringify(realData), Date.now(), 1])
-        
-        console.log(`Saved property data for UPRN: ${uprn}`)
-      } catch (propertyError) {
-        console.error('Error saving property data:', propertyError)
-        // Continue even if property save fails
+        // Get user_id from database
+        const userResult = await query(
+          'SELECT user_id FROM users WHERE email = $1',
+          [session.user.email]
+        )
+
+        if (userResult.rows.length > 0) {
+          const userId = userResult.rows[0].user_id
+
+          // Insert search history record (this will update the timestamp if it already exists)
+          await query(`
+            INSERT INTO user_search_history (user_id, uprn)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id, uprn) 
+            DO UPDATE SET searched_at = NOW()
+          `, [userId, uprn])
+          
+          console.log(`📝 Recorded search for user ${userId}, UPRN: ${uprn}`)
+        }
+      } catch (historyError) {
+        console.error('Error recording search history:', historyError)
+        // Don't fail the main request if history recording fails
       }
     }
     
-    // Record search in user search history (after property is saved)
-    try {
-      // Get user_id from database
-      const userResult = await query(
-        'SELECT user_id FROM users WHERE email = $1',
-        [session.user.email]
-      )
-
-      if (userResult.rows.length > 0 && uprn) {
-        const userId = userResult.rows[0].user_id
-
-        // Insert search history record
-        await query(`
-          INSERT INTO user_search_history (user_id, uprn)
-          VALUES ($1, $2)
-          ON CONFLICT (user_id, uprn) 
-          DO UPDATE SET searched_at = NOW()
-        `, [userId, uprn])
-        
-        console.log(`Recorded search for user ${userId}, UPRN: ${uprn}`)
-      }
-    } catch (historyError) {
-      console.error('Error recording search history:', historyError)
-      // Don't fail the main request if history recording fails
+    // Add a flag to indicate if this was cached data
+    const responseData = {
+      ...realData,
+      _cached: wasCached
     }
     
-    return NextResponse.json(realData)
+    return NextResponse.json(responseData)
   } catch (error: any) {
     console.error('Error fetching property data:', error)
     
@@ -106,7 +151,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
 
 async function fetchRealPropertyDetails(address: string, postcode: string): Promise<any> {
   // Check if API key is available
@@ -177,5 +221,3 @@ async function fetchRealPropertyDetails(address: string, postcode: string): Prom
 
   return responseData;
 }
-
-// REMOVED: Mock data function - no fallbacks wanted

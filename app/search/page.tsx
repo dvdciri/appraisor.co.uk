@@ -253,7 +253,7 @@ export default function SearchPage() {
     setSuccessMessage(null)
 
     try {
-      const response = await fetch('/api/property', {
+      const response = await fetch('/api/property/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -271,8 +271,17 @@ export default function SearchPage() {
       const data = await response.json()
       console.log('Property data received:', data)
       
-      // Save to recent analyses
-      const analysisId = await saveToRecentAnalyses(data, address, postcode)
+      // Check if this was cached data
+      const wasCached = data._cached
+      console.log('Data was cached:', wasCached)
+      
+      // Only save to recent analyses if this was fresh data (not cached)
+      if (!wasCached) {
+        console.log('Saving fresh data to recent analyses...')
+        const analysisId = await saveToRecentAnalyses(data, address, postcode)
+      } else {
+        console.log('Skipping save to recent analyses - using cached data')
+      }
       
       // Extract UPRN and redirect to dashboard with UPRN
       const uprn = extractUPRN(data)
@@ -411,36 +420,38 @@ export default function SearchPage() {
       <main className={`relative z-50 h-screen flex px-6 py-6 pt-32 pb-6 ${
         currentStep === 'postcode' ? 'items-center justify-center' : 'items-start justify-center'
       }`}>
-        <div className="w-full max-w-2xl h-full flex flex-col">
-          {/* Search Form */}
-          <div className={`relative rounded-2xl p-8 shadow-2xl animate-search-enter-fast flex flex-col overflow-hidden ${
-            currentStep === 'postcode' ? 'h-auto' : 'h-full'
-          }`}>
-            {/* Simple background for search box */}
-            <div className="absolute inset-0 rounded-2xl" style={{ backgroundColor: 'rgba(30, 15, 45, 0.9)' }} />
-            
-            {/* Content with proper z-index */}
-            <div className="relative z-10 flex flex-col h-full">
-              <div className="text-center mb-6 flex-shrink-0">
-                <h1 className="text-2xl font-bold text-white mb-2">Search for a property</h1>
-                <p className="text-gray-300 text-sm">
-                  {currentStep === 'postcode' && 'Find comprehensive insights for any property'}
-                  {currentStep === 'address' && 'Find comprehensive insights for any property'}
-                  {currentStep === 'analyzing' && 'Analyzing your property...'}
-                </p>
-              </div>
+        <div className="w-full max-w-4xl h-full flex flex-col">
+          <div className="flex gap-6 h-full">
+            {/* Search Form */}
+            <div className={`relative rounded-2xl p-8 shadow-2xl animate-search-enter-fast flex flex-col overflow-hidden ${
+              currentStep === 'postcode' ? 'h-auto flex-1' : 'h-full flex-1'
+            }`}>
+              {/* Simple background for search box */}
+              <div className="absolute inset-0 rounded-2xl" style={{ backgroundColor: 'rgba(30, 15, 45, 0.9)' }} />
               
-              <div className={currentStep === 'postcode' ? 'flex flex-col' : 'flex-1 flex flex-col min-h-0'}>
-                {renderCurrentStep()}
+              {/* Content with proper z-index */}
+              <div className="relative z-10 flex flex-col h-full">
+                <div className="text-center mb-6 flex-shrink-0">
+                  <h1 className="text-2xl font-bold text-white mb-2">Search for a property</h1>
+                  <p className="text-gray-300 text-sm">
+                    {currentStep === 'postcode' && 'Find comprehensive insights for any property'}
+                    {currentStep === 'address' && 'Find comprehensive insights for any property'}
+                    {currentStep === 'analyzing' && 'Analyzing your property...'}
+                  </p>
+                </div>
                 
-                {/* Recent Searches - only show on postcode step */}
-                {currentStep === 'postcode' && (
-                  <div className="mt-6">
-                    <RecentSearches />
-                  </div>
-                )}
+                <div className={currentStep === 'postcode' ? 'flex flex-col' : 'flex-1 flex flex-col min-h-0'}>
+                  {renderCurrentStep()}
+                </div>
               </div>
             </div>
+
+            {/* Recent Searches - standalone section */}
+            {currentStep === 'postcode' && (
+              <div className="w-80 flex-shrink-0">
+                <RecentSearches />
+              </div>
+            )}
           </div>
         </div>
       </main>

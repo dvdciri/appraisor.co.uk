@@ -38,7 +38,7 @@ export default function RecentSearches() {
 
   if (loading) {
     return (
-      <div className="bg-black/20 border border-gray-500/30 rounded-lg p-4">
+      <div className="bg-black/20 border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
         <div className="animate-pulse">
           <div className="h-4 bg-gray-700 rounded w-1/3 mb-2"></div>
           <div className="space-y-2">
@@ -52,7 +52,7 @@ export default function RecentSearches() {
 
   if (searches.length === 0) {
     return (
-      <div className="bg-black/20 border border-gray-500/30 rounded-lg p-4">
+      <div className="bg-black/20 border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
         <h3 className="text-white font-medium mb-2">Recent Searches</h3>
         <p className="text-gray-400 text-sm">No recent searches yet</p>
       </div>
@@ -60,7 +60,7 @@ export default function RecentSearches() {
   }
 
   return (
-    <div className="bg-black/20 border border-gray-500/30 rounded-lg p-4">
+    <div className="bg-black/20 border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
       <h3 className="text-white font-medium mb-3">Recent Searches</h3>
       <div className="space-y-2">
         {searches.slice(0, 5).map((search) => (
