@@ -9,7 +9,11 @@ interface RecentSearch {
   searched_at: string
 }
 
-export default function RecentSearches() {
+interface RecentSearchesProps {
+  onShowAll?: () => void
+}
+
+export default function RecentSearches({ onShowAll }: RecentSearchesProps) {
   const [searches, setSearches] = useState<RecentSearch[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -38,7 +42,7 @@ export default function RecentSearches() {
 
   if (loading) {
     return (
-      <div className="bg-black/20 border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
+      <div className="border border-gray-500/50 rounded-2xl p-6 shadow-2xl" style={{ backgroundColor: 'rgba(30, 15, 45, 0.9)' }}>
         <div className="animate-pulse">
           <div className="h-4 bg-gray-700 rounded w-1/3 mb-2"></div>
           <div className="space-y-2">
@@ -52,7 +56,7 @@ export default function RecentSearches() {
 
   if (searches.length === 0) {
     return (
-      <div className="bg-black/20 border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
+      <div className="border border-gray-500/50 rounded-2xl p-6 shadow-2xl" style={{ backgroundColor: 'rgba(30, 15, 45, 0.9)' }}>
         <h3 className="text-white font-medium mb-2">Recent Searches</h3>
         <p className="text-gray-400 text-sm">No recent searches yet</p>
       </div>
@@ -60,10 +64,20 @@ export default function RecentSearches() {
   }
 
   return (
-    <div className="bg-black/20 border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
-      <h3 className="text-white font-medium mb-3">Recent Searches</h3>
+    <div className="border border-gray-500/50 rounded-2xl p-6 shadow-2xl" style={{ backgroundColor: 'rgba(30, 15, 45, 0.9)' }}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-white font-medium">Recent Searches</h3>
+        {searches.length > 3 && onShowAll && (
+          <button
+            onClick={onShowAll}
+            className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors"
+          >
+            See All ({searches.length})
+          </button>
+        )}
+      </div>
       <div className="space-y-2">
-        {searches.slice(0, 5).map((search) => (
+        {searches.slice(0, 3).map((search) => (
           <div
             key={search.uprn}
             onClick={() => handleSearchClick(search.uprn)}
@@ -77,7 +91,7 @@ export default function RecentSearches() {
                 {new Date(search.searched_at).toLocaleDateString()}
               </p>
             </div>
-            <svg className="w-4 h-4 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-gray-400 ml-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </div>

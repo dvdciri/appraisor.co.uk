@@ -8,6 +8,7 @@ import Toast from '../components/Toast'
 import PostcodeSearch from '../components/PostcodeSearch'
 import AddressSelector from '../components/AddressSelector'
 import RecentSearches from '../components/RecentSearches'
+import AllSearches from '../components/AllSearches'
 import WorkingUserMenu from '../components/WorkingUserMenu'
 import { 
   saveCalculatorData, 
@@ -75,11 +76,13 @@ interface Address {
 }
 
 type SearchStep = 'postcode' | 'address' | 'analyzing'
+type ViewMode = 'search' | 'all-searches'
 
 export default function SearchPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState<SearchStep>('postcode')
+  const [viewMode, setViewMode] = useState<ViewMode>('search')
   const [postcode, setPostcode] = useState('')
   const [addresses, setAddresses] = useState<Address[]>([])
   const [selectedAddress, setSelectedAddress] = useState('')
@@ -311,6 +314,14 @@ export default function SearchPage() {
     setMapCenter('53.4808,-2.2426') // Reset to Manchester
   }
 
+  const handleShowAllSearches = () => {
+    setViewMode('all-searches')
+  }
+
+  const handleBackToSearch = () => {
+    setViewMode('search')
+  }
+
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 'postcode':
@@ -355,7 +366,7 @@ export default function SearchPage() {
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat blur-sm"
         style={{
-          backgroundImage: `url(https://maps.googleapis.com/maps/api/staticmap?center=53.4808,-2.2426&zoom=12&size=3840x2160&maptype=roadmap&scale=2&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY})`,
+          backgroundImage: `url(https://maps.googleapis.com/maps/api/staticmap?center=${mapCenter}&zoom=11&size=3840x2160&maptype=roadmap&scale=2&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY})`,
           imageRendering: 'crisp-edges'
         }}
       />
@@ -365,7 +376,7 @@ export default function SearchPage() {
       
       {/* Floating Top Menu Bar */}
       <header className="fixed top-0 left-0 right-0 z-[999] p-6">
-        <div className="flex items-center justify-between rounded-2xl px-6 py-4 shadow-2xl" style={{ backgroundColor: 'rgba(30, 15, 45, 0.9)' }}>
+        <div className="flex items-center justify-between rounded-2xl px-6 py-4 shadow-2xl backdrop-blur-md" style={{ backgroundColor: 'rgba(30, 15, 45, 0.8)' }}>
           {/* Left side - Appraisor branding */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden">
@@ -417,39 +428,75 @@ export default function SearchPage() {
       )}
       
       {/* Main Content */}
-      <main className={`relative z-50 h-screen flex px-6 py-6 pt-32 pb-6 ${
-        currentStep === 'postcode' ? 'items-center justify-center' : 'items-start justify-center'
-      }`}>
-        <div className="w-full max-w-4xl h-full flex flex-col">
-          <div className="flex gap-6 h-full">
-            {/* Search Form */}
-            <div className={`relative rounded-2xl p-8 shadow-2xl animate-search-enter-fast flex flex-col overflow-hidden ${
-              currentStep === 'postcode' ? 'h-auto flex-1' : 'h-full flex-1'
-            }`}>
-              {/* Simple background for search box */}
-              <div className="absolute inset-0 rounded-2xl" style={{ backgroundColor: 'rgba(30, 15, 45, 0.9)' }} />
-              
-              {/* Content with proper z-index */}
-              <div className="relative z-10 flex flex-col h-full">
-                <div className="text-center mb-6 flex-shrink-0">
-                  <h1 className="text-2xl font-bold text-white mb-2">Search for a property</h1>
-                  <p className="text-gray-300 text-sm">
-                    {currentStep === 'postcode' && 'Find comprehensive insights for any property'}
-                    {currentStep === 'address' && 'Find comprehensive insights for any property'}
-                    {currentStep === 'analyzing' && 'Analyzing your property...'}
-                  </p>
-                </div>
-                
-                <div className={currentStep === 'postcode' ? 'flex flex-col' : 'flex-1 flex flex-col min-h-0'}>
-                  {renderCurrentStep()}
-                </div>
-              </div>
-            </div>
+      <main className="relative z-10 h-screen flex flex-col">
+        {/* Scrollable Content Container - starts from top to scroll under header */}
+        <div className="flex-1 overflow-y-auto px-6 pt-32 pb-6">
+          <div className="w-full max-w-2xl mx-auto">
+            {viewMode === 'search' ? (
+              <>
+                {/* Search Section */}
+                {currentStep === 'address' ? (
+                  /* Fixed positioned search box for address step */
+                  <div className="fixed top-32 left-6 right-6 z-40">
+                    <div className="w-full max-w-2xl mx-auto">
+                      <div className="relative rounded-2xl p-8 shadow-2xl animate-enter-subtle flex flex-col overflow-hidden h-[calc(100vh-10rem)]">
+                        {/* Simple background for search box */}
+                        <div className="absolute inset-0 rounded-2xl" style={{ backgroundColor: 'rgba(30, 15, 45, 0.9)' }} />
+                        
+                        {/* Content with proper z-index */}
+                        <div className="relative z-10 flex flex-col h-full">
+                          <div className="text-center mb-6 flex-shrink-0">
+                            <h1 className="text-2xl font-bold text-white mb-2">Search for a property</h1>
+                            <p className="text-gray-300 text-sm">
+                              Find comprehensive insights for any property
+                            </p>
+                          </div>
+                          
+                          <div className="flex-1 flex flex-col min-h-0">
+                            {renderCurrentStep()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Normal search box for other steps */
+                  <div className="mb-6">
+                    <div className={`relative rounded-2xl p-8 shadow-2xl animate-enter-subtle flex flex-col overflow-hidden ${
+                      currentStep === 'postcode' ? 'h-auto' : 'h-full min-h-[400px]'
+                    }`}>
+                      {/* Simple background for search box */}
+                      <div className="absolute inset-0 rounded-2xl" style={{ backgroundColor: 'rgba(30, 15, 45, 0.9)' }} />
+                      
+                      {/* Content with proper z-index */}
+                      <div className="relative z-10 flex flex-col h-full">
+                        <div className="text-center mb-6 flex-shrink-0">
+                          <h1 className="text-2xl font-bold text-white mb-2">Search for a property</h1>
+                          <p className="text-gray-300 text-sm">
+                            {currentStep === 'postcode' && 'Find comprehensive insights for any property'}
+                            {currentStep === 'analyzing' && 'Analyzing your property...'}
+                          </p>
+                        </div>
+                        
+                        <div className={currentStep === 'postcode' ? 'flex flex-col' : 'flex-1 flex flex-col min-h-0'}>
+                          {renderCurrentStep()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-            {/* Recent Searches - standalone section */}
-            {currentStep === 'postcode' && (
-              <div className="w-80 flex-shrink-0">
-                <RecentSearches />
+                {/* Recent Searches Section */}
+                {currentStep === 'postcode' && (
+                  <div className="animate-enter-subtle-delayed">
+                    <RecentSearches onShowAll={handleShowAllSearches} />
+                  </div>
+                )}
+              </>
+            ) : (
+              /* All Searches View */
+              <div className="animate-enter-subtle">
+                <AllSearches onBack={handleBackToSearch} />
               </div>
             )}
           </div>
