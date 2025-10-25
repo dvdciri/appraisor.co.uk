@@ -8,6 +8,7 @@ import InvestmentCalculator from '../components/InvestmentCalculator'
 import ComparablesAnalysis, { renderTransactionDetails } from '../components/ComparablesAnalysis'
 import GenericPanel from '../components/GenericPanel'
 import WorkingUserMenu from '../../components/WorkingUserMenu'
+import MarketAnalysis from '../components/MarketAnalysis'
 
 type Section = 'property-details' | 'market-analysis' | 'sold-comparables' | 'investment-calculator' | 'ai-refurbishment' | 'risk-assessment'
 
@@ -1603,6 +1604,15 @@ export default function DashboardV1() {
                                 Loading property data...
                               </div>
                             )}
+                          </div>
+                        ) : activeSection === 'market-analysis' ? (
+                          /* Market Analysis Section */
+                          <div className="w-full">
+                            <div className="flex items-center gap-3 mb-6">
+                              <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                              <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
+                            </div>
+                            <MarketAnalysis marketStatistics={getPropertyValue('market_statistics')} />
                           </div>
                         ) : (
                           /* Other Sections - Empty Layout */
