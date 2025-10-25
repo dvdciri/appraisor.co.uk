@@ -233,7 +233,7 @@ export default function NearbyListings({ listings }: NearbyListingsProps) {
 
   const ListingCard = ({ listing }: { listing: Listing }) => {
     const imageIndex = currentImageIndex[listing.listing_id] || 0
-    const allImages = [...listing.images]
+    const allImages = [...listing.images].slice(0, 10) // Limit to first 10 images
     const currentImage = allImages[imageIndex] || listing.main_image_url
     const hasMultipleImages = allImages.length > 1
 
@@ -400,116 +400,128 @@ export default function NearbyListings({ listings }: NearbyListingsProps) {
       <div className="bg-black/20 border border-gray-500/30 rounded-xl p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           {/* Distance Filter */}
-          <div className="relative">
+          <div>
             <label className="block text-sm text-gray-400 mb-2">Distance</label>
-            <select
-              value={distanceFilter}
-              onChange={(e) => setDistanceFilter(Number(e.target.value))}
-              className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
-            >
-              {DISTANCE_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+            <div className="relative">
+              <select
+                value={distanceFilter}
+                onChange={(e) => setDistanceFilter(Number(e.target.value))}
+                className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
+              >
+                {DISTANCE_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
           </div>
 
           {/* Min Price */}
-          <div className="relative">
+          <div>
             <label className="block text-sm text-gray-400 mb-2">Min Price</label>
-            <select
-              value={minPrice}
-              onChange={(e) => setMinPrice(e.target.value)}
-              className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
-            >
-              {priceOptions.map(price => (
-                <option key={price} value={price}>{price}</option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+            <div className="relative">
+              <select
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
+                className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
+              >
+                {priceOptions.map(price => (
+                  <option key={price} value={price}>{price}</option>
+                ))}
+              </select>
+              <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
           </div>
 
           {/* Max Price */}
-          <div className="relative">
+          <div>
             <label className="block text-sm text-gray-400 mb-2">Max Price</label>
-            <select
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
-              className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
-            >
-              {priceOptions.map(price => (
-                <option key={price} value={price}>{price}</option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+            <div className="relative">
+              <select
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
+              >
+                {priceOptions.map(price => (
+                  <option key={price} value={price}>{price}</option>
+                ))}
+              </select>
+              <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
           </div>
 
           {/* Min Beds */}
-          <div className="relative">
+          <div>
             <label className="block text-sm text-gray-400 mb-2">Min Beds</label>
-            <select
-              value={minBeds}
-              onChange={(e) => setMinBeds(e.target.value)}
-              className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
-            >
-              {BED_OPTIONS.map(beds => (
-                <option key={beds} value={beds}>{beds}</option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+            <div className="relative">
+              <select
+                value={minBeds}
+                onChange={(e) => setMinBeds(e.target.value)}
+                className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
+              >
+                {BED_OPTIONS.map(beds => (
+                  <option key={beds} value={beds}>{beds}</option>
+                ))}
+              </select>
+              <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
           </div>
 
           {/* Max Beds */}
-          <div className="relative">
+          <div>
             <label className="block text-sm text-gray-400 mb-2">Max Beds</label>
-            <select
-              value={maxBeds}
-              onChange={(e) => setMaxBeds(e.target.value)}
-              className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
-            >
-              {BED_OPTIONS.map(beds => (
-                <option key={beds} value={beds}>{beds}</option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+            <div className="relative">
+              <select
+                value={maxBeds}
+                onChange={(e) => setMaxBeds(e.target.value)}
+                className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
+              >
+                {BED_OPTIONS.map(beds => (
+                  <option key={beds} value={beds}>{beds}</option>
+                ))}
+              </select>
+              <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
           </div>
 
           {/* Property Type */}
-          <div className="relative">
+          <div>
             <label className="block text-sm text-gray-400 mb-2">Property Type</label>
-            <select
-              value={propertyType}
-              onChange={(e) => setPropertyType(e.target.value)}
-              className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
-            >
-              {PROPERTY_TYPE_OPTIONS.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+            <div className="relative">
+              <select
+                value={propertyType}
+                onChange={(e) => setPropertyType(e.target.value)}
+                className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
+              >
+                {PROPERTY_TYPE_OPTIONS.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+              <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
           </div>
         </div>
