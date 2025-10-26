@@ -4,6 +4,31 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import StreetViewImage from './StreetViewImage'
 import GenericPanel from './GenericPanel'
 
+// Add CSS animation for checkmark
+const checkmarkAnimation = `
+@keyframes checkmark {
+  0% {
+    transform: scale(0) rotate(45deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2) rotate(45deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(45deg);
+    opacity: 1;
+  }
+}
+`
+
+// Inject the CSS
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style')
+  style.textContent = checkmarkAnimation
+  document.head.appendChild(style)
+}
+
 // Types
 interface ComparableTransaction {
   street_group_property_id: string
@@ -30,6 +55,45 @@ interface ComparableTransaction {
     }
   }
   distance_in_metres: number
+  tenure?: {
+    tenure_type: string
+    tenure_type_predicted: boolean
+    lease_details: any
+  }
+}
+
+interface PropertyWithTransactions {
+  street_group_property_id: string
+  address: {
+    street_group_format: {
+      address_lines: string
+      postcode: string
+    }
+    simplified_format: {
+      street: string
+    }
+  }
+  property_type: string
+  tenure?: {
+    tenure_type: string
+    tenure_type_predicted: boolean
+    lease_details: any
+  }
+  number_of_bedrooms: number
+  number_of_bathrooms: number
+  location: {
+    coordinates: {
+      longitude: number
+      latitude: number
+    }
+  }
+  distance_in_metres: number
+  transactions: Array<{
+    transaction_date: string
+    price: number
+    internal_area_square_metres: number
+    price_per_square_metre: number
+  }>
 }
 
 interface Filters {
@@ -299,107 +363,203 @@ const isTransactionInDistanceRange = (distance: number, filter: string) => {
   }
 }
 
+// Helper function for tenure icon
+function getTenureIcon(tenure?: { tenure_type: string }) {
+  return (
+    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+    </svg>
+  )
+}
+
+// Transaction Timeline Component
+function TransactionTimeline({ 
+  transactions, 
+  onViewMore 
+}: { 
+  transactions: Array<{
+    transaction_date: string
+    price: number
+    internal_area_square_metres: number
+    price_per_square_metre: number
+  }>, 
+  onViewMore?: () => void 
+}) {
+  const visibleTransactions = transactions.slice(0, 2)
+  const remainingCount = transactions.length - 2
+  
+  return (
+    <div className="space-y-2 mt-4">
+      {/* Recent transactions */}
+      {visibleTransactions.map((t, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-teal-400" />
+          <span className="text-sm text-gray-300">{formatDate(t.transaction_date)}</span>
+          <span className="text-sm font-medium text-gray-100">£{t.price.toLocaleString()}</span>
+        </div>
+      ))}
+      
+      {/* View more */}
+      {remainingCount > 0 && (
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-teal-400" />
+          <button 
+            onClick={onViewMore}
+            className="text-sm text-gray-400 hover:text-gray-300 underline"
+          >
+            View +{remainingCount} more
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Transaction Card Component
 function TransactionCard({ 
-  transaction, 
+  property, 
   isSelected, 
   onSelect, 
   onDeselect,
   onViewDetails,
   dragProps 
 }: {
-  transaction: ComparableTransaction
+  property: PropertyWithTransactions
   isSelected: boolean
   onSelect: () => void
   onDeselect: () => void
   onViewDetails: () => void
   dragProps?: any
 }) {
+  const latestTransaction = property.transactions[0]
+  const [isAnimating, setIsAnimating] = useState(false)
+  
+  const handleCheckboxClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    
+    if (isSelected) {
+      // If already selected, deselect immediately
+      onDeselect()
+    } else {
+      // If not selected, show animation first, then select
+      setIsAnimating(true)
+      setTimeout(() => {
+        onSelect()
+        setIsAnimating(false)
+      }, 300) // Match the animation duration
+    }
+  }, [isSelected, onSelect, onDeselect])
+  
   return (
     <div
       {...dragProps}
-      onClick={onViewDetails}
-      className={`relative p-4 rounded-lg border transition-all duration-200 cursor-pointer hover:bg-gray-700/40 hover:border-gray-500/50 ${
+      className={`relative p-4 rounded-lg border transition-all duration-200 ${
         isSelected
           ? 'bg-purple-500/20 border-purple-400/50 shadow-lg'
           : 'bg-gray-800/30 border-gray-600/30'
       }`}
     >
       <div className="flex gap-4">
-        {/* Street View Image - Left Side */}
-        <div className="flex-shrink-0 relative">
-          <StreetViewImage
-            address={transaction.address?.street_group_format?.address_lines || ''}
-            postcode={transaction.address?.street_group_format?.postcode || ''}
-            latitude={transaction.location?.coordinates?.latitude}
-            longitude={transaction.location?.coordinates?.longitude}
-            className="w-20 h-20 object-cover rounded-lg"
-            size="150x150"
-          />
-          {isSelected && (
-            <div className="absolute top-1 right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        {/* Checkbox - Left Side */}
+        <div className="flex-shrink-0 flex items-start pt-1">
+          <button
+            onClick={handleCheckboxClick}
+            className="w-8 h-8 rounded border-2 border-gray-600 bg-gray-800 hover:border-gray-500 flex items-center justify-center transition-all duration-200"
+          >
+            {(isSelected || isAnimating) && (
+              <svg 
+                className="w-6 h-6 text-purple-400 transition-all duration-200" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
-            </div>
-          )}
+            )}
+          </button>
         </div>
         
         {/* Property Details - Middle */}
         <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex-1">
-              <h4 className="text-sm font-medium text-gray-100 mb-1">
-                {transaction.address?.street_group_format?.address_lines || 'Address not available'}
-              </h4>
-              <p className="text-xs text-gray-400">
-                {transaction.address?.street_group_format?.postcode || 'Postcode not available'}
-              </p>
-            </div>
-            <div className="text-right ml-4">
-              <div className="text-lg font-bold text-white">
-                {formatCurrency(transaction.price)}
+          {/* Address and Postcode */}
+          <div className="mb-3">
+            <h4 className="text-sm font-medium text-gray-100 mb-1">
+              {property.address?.street_group_format?.address_lines || 'Address not available'}{property.address?.street_group_format?.postcode && ` ${property.address.street_group_format.postcode}`}
+            </h4>
+          </div>
+          
+          {/* Property Icons */}
+          <div className="flex gap-4 text-xs text-gray-400 mb-4">
+            {property.tenure && (
+              <div className="flex items-center gap-1">
+                {getTenureIcon(property.tenure)}
+                <span className="capitalize">{property.tenure.tenure_type}</span>
               </div>
+            )}
+            <div className="flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 8h20v8H2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 6h4v2H2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 6h4v2h-4z" />
+                <circle cx="4" cy="9" r="1" fill="currentColor" />
+              </svg>
+              <span>{property.number_of_bedrooms || 0} bed</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M10.5 3L12 2l1.5 1H21v6H3V3h7.5z" />
+              </svg>
+              <span>{property.number_of_bathrooms || 0} bath</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              <span>{property.property_type || 'Unknown'}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+              <span>{property.transactions[0]?.internal_area_square_metres || 0}m²</span>
             </div>
           </div>
           
-          <div className="flex justify-between items-center text-xs text-gray-400">
-            <div className="flex gap-4">
-              <span>{transaction.number_of_bedrooms || 0} bed</span>
-              <span>{transaction.number_of_bathrooms || 0} bath</span>
-              <span>{transaction.property_type || 'Unknown'}</span>
-              <span>{transaction.internal_area_square_metres || 0}m²</span>
-            </div>
-            <div className="text-right">
-              <div>{formatDate(transaction.transaction_date)}</div>
-              <div>{getDistanceLabel(transaction.distance_in_metres)}</div>
-            </div>
+          {/* Transaction Timeline */}
+          <div className="mt-8">
+            <TransactionTimeline 
+              transactions={property.transactions}
+              onViewMore={() => onViewDetails()}
+            />
           </div>
         </div>
 
-        {/* Action Button - Right Side */}
-        <div className="flex-shrink-0 flex items-center">
+        {/* Street View Image and Details Button - Right Side */}
+        <div className="flex-shrink-0 flex gap-3">
+          <div className="w-24">
+            <StreetViewImage
+              address={property.address?.street_group_format?.address_lines || ''}
+              postcode={property.address?.street_group_format?.postcode || ''}
+              latitude={property.location?.coordinates?.latitude}
+              longitude={property.location?.coordinates?.longitude}
+              className="w-full h-full object-cover rounded-lg"
+              size="150x150"
+            />
+          </div>
+          
+          {/* Details Button */}
           <button
             onClick={(e) => {
               e.stopPropagation()
-              isSelected ? onDeselect() : onSelect()
+              onViewDetails()
             }}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all backdrop-blur-sm ${
-              isSelected 
-                ? 'bg-red-500/80 text-white hover:bg-red-400/80' 
-                : 'bg-green-500/80 text-white hover:bg-green-400/80'
-            }`}
-            title={isSelected ? 'Remove from comparables' : 'Add to comparables'}
+            className="w-10 h-full bg-gray-700/50 hover:bg-gray-600/50 flex items-center justify-center transition-all duration-200 rounded-lg"
+            title="View details"
           >
-            {isSelected ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            )}
+            <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </button>
         </div>
       </div>
@@ -441,6 +601,15 @@ function FilterControls({
         >
           Clear All
         </button>
+      </div>
+      
+      <div className="text-xs text-gray-400 mb-4">
+        Showing {filteredCount} of {totalCount} properties
+        {totalCount > filteredCount && (
+          <span className="ml-1 text-orange-400">
+            ({totalCount - filteredCount} filtered out)
+          </span>
+        )}
       </div>
       
       <div className="space-y-4">
@@ -747,28 +916,48 @@ export default function ComparablesAnalysis({
   const [isLoadingValuation, setIsLoadingValuation] = useState(false)
   const [hasUserInteracted, setHasUserInteracted] = useState(false)
 
-  // Deduplicate transactions - keep only most recent per property
-  const deduplicatedTransactions = useMemo(() => {
-    const transactionMap = new Map<string, ComparableTransaction>()
+  // Group transactions by property instead of deduplicating
+  const groupedProperties = useMemo(() => {
+    const propertyMap = new Map<string, PropertyWithTransactions>()
     
     nearbyTransactions.forEach(transaction => {
       const id = transaction.street_group_property_id
-      const existing = transactionMap.get(id)
+      const existing = propertyMap.get(id)
       
       if (!existing) {
-        transactionMap.set(id, transaction)
+        propertyMap.set(id, {
+          street_group_property_id: transaction.street_group_property_id,
+          address: transaction.address,
+          property_type: transaction.property_type,
+          tenure: transaction.tenure,
+          number_of_bedrooms: transaction.number_of_bedrooms,
+          number_of_bathrooms: transaction.number_of_bathrooms,
+          location: transaction.location,
+          distance_in_metres: transaction.distance_in_metres,
+          transactions: [{
+            transaction_date: transaction.transaction_date,
+            price: transaction.price,
+            internal_area_square_metres: transaction.internal_area_square_metres,
+            price_per_square_metre: transaction.price_per_square_metre
+          }]
+        })
       } else {
-        // Keep the most recent transaction
-        const existingDate = new Date(existing.transaction_date + 'T00:00:00.000Z')
-        const currentDate = new Date(transaction.transaction_date + 'T00:00:00.000Z')
-        
-        if (currentDate > existingDate) {
-          transactionMap.set(id, transaction)
-        }
+        existing.transactions.push({
+          transaction_date: transaction.transaction_date,
+          price: transaction.price,
+          internal_area_square_metres: transaction.internal_area_square_metres,
+          price_per_square_metre: transaction.price_per_square_metre
+        })
+        // Sort transactions by date (newest first)
+        existing.transactions.sort((a, b) => {
+          const dateA = new Date(a.transaction_date + 'T00:00:00.000Z')
+          const dateB = new Date(b.transaction_date + 'T00:00:00.000Z')
+          return dateB.getTime() - dateA.getTime()
+        })
       }
     })
     
-    return Array.from(transactionMap.values())
+    return Array.from(propertyMap.values())
   }, [nearbyTransactions])
 
   // Load saved data on mount
@@ -807,12 +996,30 @@ export default function ComparablesAnalysis({
   // Notify parent when selected transactions change
   useEffect(() => {
     if (onSelectedTransactionsChange) {
-      const selectedTransactions = deduplicatedTransactions.filter(t => 
-        selectedComparableIds.includes(t.street_group_property_id)
+      const selectedProperties = groupedProperties.filter(p => 
+        selectedComparableIds.includes(p.street_group_property_id)
       )
+      // Convert properties back to transactions for parent component compatibility
+      const selectedTransactions = selectedProperties.map(property => {
+        const latestTransaction = property.transactions[0]
+        return {
+          street_group_property_id: property.street_group_property_id,
+          address: property.address,
+          property_type: property.property_type,
+          transaction_date: latestTransaction.transaction_date,
+          price: latestTransaction.price,
+          internal_area_square_metres: latestTransaction.internal_area_square_metres,
+          price_per_square_metre: latestTransaction.price_per_square_metre,
+          number_of_bedrooms: property.number_of_bedrooms,
+          number_of_bathrooms: property.number_of_bathrooms,
+          location: property.location,
+          distance_in_metres: property.distance_in_metres,
+          tenure: property.tenure
+        } as ComparableTransaction
+      })
       onSelectedTransactionsChange(selectedTransactions)
     }
-  }, [selectedComparableIds, deduplicatedTransactions, onSelectedTransactionsChange])
+  }, [selectedComparableIds, groupedProperties, onSelectedTransactionsChange])
 
   // Show loading when valuation strategy or selected comparables change
   useEffect(() => {
@@ -825,43 +1032,46 @@ export default function ComparablesAnalysis({
     }
   }, [valuationStrategy, selectedComparableIds, hasLoadedInitialData])
 
-  // Filter and sort transactions
-  const filteredTransactions = useMemo(() => {
-    const filtered = deduplicatedTransactions.filter(transaction => {
+  // Filter and sort properties
+  const filteredProperties = useMemo(() => {
+    const filtered = groupedProperties.filter(property => {
       // Bedrooms filter
       if (filters.bedrooms !== 'Any') {
-        const transactionBeds = transaction.number_of_bedrooms || 0
+        const propertyBeds = property.number_of_bedrooms || 0
         const filterBeds = filters.bedrooms === '5+' ? 5 : parseInt(filters.bedrooms)
         
         if (filters.bedrooms === '5+') {
-          if (transactionBeds < 5) return false
+          if (propertyBeds < 5) return false
         } else {
-          if (transactionBeds !== filterBeds) return false
+          if (propertyBeds !== filterBeds) return false
         }
       }
 
       // Bathrooms filter
       if (filters.bathrooms !== 'Any') {
-        const transactionBaths = transaction.number_of_bathrooms || 0
+        const propertyBaths = property.number_of_bathrooms || 0
         const filterBaths = filters.bathrooms === '4+' ? 4 : parseInt(filters.bathrooms)
         
         if (filters.bathrooms === '4+') {
-          if (transactionBaths < 4) return false
+          if (propertyBaths < 4) return false
         } else {
-          if (transactionBaths !== filterBaths) return false
+          if (propertyBaths !== filterBaths) return false
         }
       }
 
-      // Date filter
+      // Date filter - check if any transaction matches
       if (filters.transactionDate !== 'any') {
         const daysBack = parseInt(filters.transactionDate)
-        if (!isTransactionInDateRange(transaction.transaction_date, daysBack)) return false
+        const hasMatchingTransaction = property.transactions.some(transaction => 
+          isTransactionInDateRange(transaction.transaction_date, daysBack)
+        )
+        if (!hasMatchingTransaction) return false
       }
 
       // Property type filter
       if (filters.propertyType !== 'Any') {
-        const transactionType = transaction.property_type || 'Unknown'
-        if (transactionType !== filters.propertyType) {
+        const propertyType = property.property_type || 'Unknown'
+        if (propertyType !== filters.propertyType) {
           return false
         }
       }
@@ -869,12 +1079,12 @@ export default function ComparablesAnalysis({
       // Distance filter
       if (filters.distance !== 'any') {
         if (filters.distance === 'same_street') {
-          const transactionStreet = transaction.address?.simplified_format?.street || ''
-          if (transactionStreet !== subjectPropertyStreet) {
+          const propertyStreet = property.address?.simplified_format?.street || ''
+          if (propertyStreet !== subjectPropertyStreet) {
             return false
           }
         } else {
-          const distance = transaction.distance_in_metres || 0
+          const distance = property.distance_in_metres || 0
           if (!isTransactionInDistanceRange(distance, filters.distance)) {
             return false
           }
@@ -888,16 +1098,20 @@ export default function ComparablesAnalysis({
     return filtered.sort((a, b) => {
       switch (sortBy) {
         case 'price-high':
-          return (b.price || 0) - (a.price || 0)
+          const priceA = a.transactions[0]?.price || 0
+          const priceB = b.transactions[0]?.price || 0
+          return priceB - priceA
         case 'price-low':
-          return (a.price || 0) - (b.price || 0)
+          const priceALow = a.transactions[0]?.price || 0
+          const priceBLow = b.transactions[0]?.price || 0
+          return priceALow - priceBLow
         case 'newest':
-          const dateA = new Date(a.transaction_date + 'T00:00:00.000Z')
-          const dateB = new Date(b.transaction_date + 'T00:00:00.000Z')
+          const dateA = new Date(a.transactions[0]?.transaction_date + 'T00:00:00.000Z')
+          const dateB = new Date(b.transactions[0]?.transaction_date + 'T00:00:00.000Z')
           return dateB.getTime() - dateA.getTime()
         case 'oldest':
-          const dateAOld = new Date(a.transaction_date + 'T00:00:00.000Z')
-          const dateBOld = new Date(b.transaction_date + 'T00:00:00.000Z')
+          const dateAOld = new Date(a.transactions[0]?.transaction_date + 'T00:00:00.000Z')
+          const dateBOld = new Date(b.transactions[0]?.transaction_date + 'T00:00:00.000Z')
           return dateAOld.getTime() - dateBOld.getTime()
         case 'closest':
           return (a.distance_in_metres || 0) - (b.distance_in_metres || 0)
@@ -905,38 +1119,44 @@ export default function ComparablesAnalysis({
           return 0
       }
     })
-  }, [deduplicatedTransactions, filters, subjectPropertyStreet, sortBy])
+  }, [groupedProperties, filters, subjectPropertyStreet, sortBy])
 
   // Get unique property types for filter
   const propertyTypes = useMemo(() => {
-    return Array.from(new Set(deduplicatedTransactions.map(t => t.property_type || 'Unknown'))).sort()
-  }, [deduplicatedTransactions])
+    return Array.from(new Set(groupedProperties.map(p => p.property_type || 'Unknown'))).sort()
+  }, [groupedProperties])
 
   // Calculate valuation
   const calculatedValuation = useMemo(() => {
     if (selectedComparableIds.length === 0) return null
 
-    const selectedTransactions = deduplicatedTransactions.filter(t => 
-      selectedComparableIds.includes(t.street_group_property_id)
+    const selectedProperties = groupedProperties.filter(p => 
+      selectedComparableIds.includes(p.street_group_property_id)
     )
 
-    if (selectedTransactions.length === 0) return null
+    if (selectedProperties.length === 0) return null
 
     if (valuationStrategy === 'average') {
-      const totalPrice = selectedTransactions.reduce((sum, t) => sum + (t.price || 0), 0)
-      return totalPrice / selectedTransactions.length
+      // Use the latest transaction price for each property
+      const totalPrice = selectedProperties.reduce((sum, p) => sum + (p.transactions[0]?.price || 0), 0)
+      return totalPrice / selectedProperties.length
     } else {
       // Price per sqm strategy
       if (subjectPropertySqm <= 0) return null
       
-      const validTransactions = selectedTransactions.filter(t => t.price_per_square_metre && t.price_per_square_metre > 0)
-      if (validTransactions.length === 0) return null
+      const validProperties = selectedProperties.filter(p => {
+        const latestTransaction = p.transactions[0]
+        return latestTransaction?.price_per_square_metre && latestTransaction.price_per_square_metre > 0
+      })
+      if (validProperties.length === 0) return null
       
-      const totalPricePerSqm = validTransactions.reduce((sum, t) => sum + (t.price_per_square_metre || 0), 0)
-      const avgPricePerSqm = totalPricePerSqm / validTransactions.length
+      const totalPricePerSqm = validProperties.reduce((sum, p) => 
+        sum + (p.transactions[0]?.price_per_square_metre || 0), 0
+      )
+      const avgPricePerSqm = totalPricePerSqm / validProperties.length
       return avgPricePerSqm * subjectPropertySqm
     }
-  }, [selectedComparableIds, deduplicatedTransactions, valuationStrategy, subjectPropertySqm])
+  }, [selectedComparableIds, groupedProperties, valuationStrategy, subjectPropertySqm])
 
   // Save data with debouncing - only save when user makes changes, not on initial load
   useEffect(() => {
@@ -984,13 +1204,13 @@ export default function ComparablesAnalysis({
     if (process.env.NODE_ENV === 'development') {
       console.log('Comparables Debug:', {
         totalTransactions: nearbyTransactions.length,
-        deduplicatedCount: deduplicatedTransactions.length,
-        duplicatesRemoved: nearbyTransactions.length - deduplicatedTransactions.length,
-        filteredCount: filteredTransactions.length,
+        groupedPropertiesCount: groupedProperties.length,
+        propertiesGrouped: nearbyTransactions.length - groupedProperties.length,
+        filteredCount: filteredProperties.length,
         selectedCount: selectedComparableIds.length
       })
     }
-  }, [nearbyTransactions, deduplicatedTransactions, filteredTransactions, selectedComparableIds])
+  }, [nearbyTransactions, groupedProperties, filteredProperties, selectedComparableIds])
 
   // Handlers
   const handleSelectComparable = useCallback((id: string) => {
@@ -1012,9 +1232,25 @@ export default function ComparablesAnalysis({
     setHasUserInteracted(true)
   }, [])
 
-  const handleViewDetails = useCallback((transaction: ComparableTransaction) => {
+  const handleViewDetails = useCallback((property: PropertyWithTransactions) => {
+    // Convert property to transaction format for the details panel
+    const latestTransaction = property.transactions[0]
+    const transactionForDetails: ComparableTransaction = {
+      street_group_property_id: property.street_group_property_id,
+      address: property.address,
+      property_type: property.property_type,
+      transaction_date: latestTransaction.transaction_date,
+      price: latestTransaction.price,
+      internal_area_square_metres: latestTransaction.internal_area_square_metres,
+      price_per_square_metre: latestTransaction.price_per_square_metre,
+      number_of_bedrooms: property.number_of_bedrooms,
+      number_of_bathrooms: property.number_of_bathrooms,
+      location: property.location,
+      distance_in_metres: property.distance_in_metres,
+      tenure: property.tenure
+    }
     if (onTransactionSelect) {
-      onTransactionSelect(transaction)
+      onTransactionSelect(transactionForDetails)
     }
   }, [onTransactionSelect])
 
@@ -1031,15 +1267,15 @@ export default function ComparablesAnalysis({
 
 
 
-  // Get selected and available transactions
-  const availableTransactions = filteredTransactions.filter(t => 
-    !selectedComparableIds.includes(t.street_group_property_id)
+  // Get selected and available properties
+  const availableProperties = filteredProperties.filter(p => 
+    !selectedComparableIds.includes(p.street_group_property_id)
   )
-  const selectedTransactions = deduplicatedTransactions
-    .filter(t => selectedComparableIds.includes(t.street_group_property_id))
+  const selectedProperties = groupedProperties
+    .filter(p => selectedComparableIds.includes(p.street_group_property_id))
     .sort((a, b) => {
-      const dateA = new Date(a.transaction_date + 'T00:00:00.000Z')
-      const dateB = new Date(b.transaction_date + 'T00:00:00.000Z')
+      const dateA = new Date(a.transactions[0]?.transaction_date + 'T00:00:00.000Z')
+      const dateB = new Date(b.transactions[0]?.transaction_date + 'T00:00:00.000Z')
       return dateB.getTime() - dateA.getTime() // Most recent first
     })
 
@@ -1092,7 +1328,7 @@ export default function ComparablesAnalysis({
   }
 
   // Show empty state
-  if (deduplicatedTransactions.length === 0) {
+  if (groupedProperties.length === 0) {
     return (
       <>
         {/* Valuation Hero Section */}
@@ -1189,30 +1425,49 @@ export default function ComparablesAnalysis({
               filters={filters}
               onFiltersChange={setFilters}
               propertyTypes={propertyTypes}
-              totalCount={deduplicatedTransactions.length}
-              filteredCount={filteredTransactions.length}
+              totalCount={groupedProperties.length}
+              filteredCount={filteredProperties.length}
             />
           )}
           
-          {/* Rightmove House Prices Button */}
-          {subjectPropertyData?.postcode && (
-            <div className="mt-4">
-              <a
-                href={`https://www.rightmove.co.uk/house-prices/${subjectPropertyData.postcode.toLowerCase().replace(/\s+/g, '-')}.html`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/50 hover:border-blue-400/70 rounded-lg px-4 py-3 text-blue-300 hover:text-blue-200 transition-all duration-200 text-sm font-medium flex items-center justify-center gap-2 group"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                Rightmove House Prices
-                <svg className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </a>
+          {/* Other Sources Section */}
+          <div className="mt-6">
+            <h3 className="text-sm font-medium text-gray-300 mb-3">Other sources</h3>
+            <div className="space-y-2">
+              {subjectPropertyData?.postcode && (
+                <a
+                  href={`https://www.rightmove.co.uk/house-prices/${subjectPropertyData.postcode.toLowerCase().replace(/\s+/g, '-')}.html`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex bg-gray-700/30 hover:bg-gray-600/30 border border-gray-600/30 hover:border-gray-500/50 rounded-lg px-3 py-2 text-gray-400 hover:text-gray-300 transition-all duration-200 text-xs items-center gap-2 group"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Rightmove House Prices
+                  <svg className="w-2 h-2 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              )}
+              {subjectPropertyData?.postcode && (
+                <a
+                  href={`https://www.zoopla.co.uk/house-prices/walkden/everside-close/m28-3ey/?new_homes=include&q=M28+3EY&view_type=list`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex bg-gray-700/30 hover:bg-gray-600/30 border border-gray-600/30 hover:border-gray-500/50 rounded-lg px-3 py-2 text-gray-400 hover:text-gray-300 transition-all duration-200 text-xs items-center gap-2 group"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Zoopla House Prices
+                  <svg className="w-2 h-2 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Right Content - Transaction List */}
@@ -1228,16 +1483,8 @@ export default function ComparablesAnalysis({
                 ) : (
                   <>
                     <h3 className="text-lg font-semibold text-gray-100">
-                      Nearby Completed Transactions ({availableTransactions.length})
+                      Nearby Transactions ({availableProperties.length})
                     </h3>
-                    <div className="text-xs text-gray-400 mt-1">
-                      Showing {filteredTransactions.length} of {deduplicatedTransactions.length} transactions
-                      {deduplicatedTransactions.length > filteredTransactions.length && (
-                        <span className="ml-1 text-orange-400">
-                          ({deduplicatedTransactions.length - filteredTransactions.length} filtered out)
-                        </span>
-                      )}
-                    </div>
                   </>
                 )}
               </div>
@@ -1304,19 +1551,19 @@ export default function ComparablesAnalysis({
                 ))
               ) : (
                 <>
-                  {availableTransactions.map(transaction => (
+                  {availableProperties.map(property => (
                     <TransactionCard
-                      key={transaction.street_group_property_id}
-                      transaction={transaction}
-                      isSelected={selectedComparableIds.includes(transaction.street_group_property_id)}
-                      onSelect={() => handleSelectComparable(transaction.street_group_property_id)}
-                      onDeselect={() => handleDeselectComparable(transaction.street_group_property_id)}
-                      onViewDetails={() => handleViewDetails(transaction)}
+                      key={property.street_group_property_id}
+                      property={property}
+                      isSelected={selectedComparableIds.includes(property.street_group_property_id)}
+                      onSelect={() => handleSelectComparable(property.street_group_property_id)}
+                      onDeselect={() => handleDeselectComparable(property.street_group_property_id)}
+                      onViewDetails={() => handleViewDetails(property)}
                     />
                   ))}
-                  {availableTransactions.length === 0 && (
+                  {availableProperties.length === 0 && (
                     <div className="text-center py-8 text-gray-400">
-                      No transactions match the current filters
+                      No properties match the current filters
                     </div>
                   )}
                 </>

@@ -1669,14 +1669,12 @@ export default function DashboardV1() {
                         ) : activeSection === 'sold-comparables' ? (
                           /* Sold Comparables Section */
                           <div className="w-full">
-                            <div className="flex items-center justify-between mb-6">
-                              <div className="flex items-center gap-3">
-                                <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
-                                <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
-                              </div>
+                            <div className="flex items-center gap-3 mb-6">
+                              <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                              <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                               <button
                                 onClick={() => setShowHowItWorksDialog(true)}
-                                className="text-purple-400 hover:text-purple-300 text-sm underline transition-colors"
+                                className="text-purple-400 hover:text-purple-300 text-sm underline transition-colors ml-4"
                               >
                                 How does it work?
                               </button>
@@ -1910,7 +1908,7 @@ export default function DashboardV1() {
             />
             <div className="relative bg-black/90 border border-gray-500/30 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-100">How does it work?</h2>
+                <h2 className="text-xl font-bold text-gray-100">Property Valuation</h2>
                 <button
                   onClick={() => setShowHowItWorksDialog(false)}
                   className="text-gray-400 hover:text-gray-200 transition-colors"
@@ -1923,14 +1921,18 @@ export default function DashboardV1() {
               <div className="space-y-4 text-sm text-gray-300">
                 <div className="flex items-start gap-3">
                   <span className="text-green-400 font-bold">1.</span>
-                  <p>Click the <span className="text-green-400 font-semibold">+</span> button to select comparable properties</p>
+                  <p>Browse the list of nearby transactions</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="text-green-400 font-bold">2.</span>
-                  <p>The valuation is calculated based on your selected comparables</p>
+                  <p>Identify the transactions that are similar to your property</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="text-green-400 font-bold">3.</span>
+                  <p>Add them to the valuation by ticking the box next to each transaction</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-green-400 font-bold">4.</span>
                   <p>Choose between Simple Average or Price per Square Metre calculation methods</p>
                 </div>
               </div>
