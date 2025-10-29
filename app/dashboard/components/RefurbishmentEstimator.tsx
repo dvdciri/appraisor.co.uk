@@ -49,6 +49,7 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [propertyData, setPropertyData] = useState<any>(null)
+  const [dataReady, setDataReady] = useState(false)
   
   // Step management
   const [currentStep, setCurrentStep] = useState<Step>('details')
@@ -74,6 +75,11 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
   const [estimationResult, setEstimationResult] = useState<EstimationResult | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [selectedLevel, setSelectedLevel] = useState<RefurbishmentLevel>('standard')
+  const [analyzingMessage, setAnalyzingMessage] = useState<string>('Collecting property details...')
+  
+  // Edit states
+  const [editingItem, setEditingItem] = useState<number | null>(null)
+  const [editAmounts, setEditAmounts] = useState<{[key: number]: {basic: number, standard: number, premium: number}}>({})
   
   // Confirmation dialog state
   const [showApplyConfirm, setShowApplyConfirm] = useState(false)
@@ -93,6 +99,27 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
       }
     }
     
+    // Handle object values with meta/value structure
+    if (value && typeof value === 'object') {
+      // If it has a value property, use that
+      if ('value' in value) {
+        return value.value !== undefined && value.value !== null ? value.value : fallback
+      }
+      // If it has meta and value, use value
+      if ('meta' in value && 'value' in value) {
+        return value.value !== undefined && value.value !== null ? value.value : fallback
+      }
+      // For other object structures, try to extract meaningful data
+      if (value.occupancy_type) {
+        return value.occupancy_type
+      }
+      if (typeof value.owner_occupied === 'boolean') {
+        return value.owner_occupied ? 'Owner Occupied' : 'Not Owner Occupied'
+      }
+      // Fallback to string representation
+      return String(value)
+    }
+    
     return value !== undefined && value !== null ? value : fallback
   }
 
@@ -108,10 +135,12 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
           }
           
           const data = await response.json()
-          setPropertyData(data)
           
-          // Populate form fields with property data
+          // Only set property data and stop loading if we have valid data structure
           if (data?.data?.data?.attributes) {
+            setPropertyData(data)
+            
+            // Populate form fields with property data
             const attrs = data.data.data.attributes
             if (attrs.number_of_bedrooms?.value) {
               setNumBeds(attrs.number_of_bedrooms.value.toString())
@@ -128,12 +157,22 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
             if (attrs.outdoor_space?.outdoor_space_area_square_metres) {
               setOutdoorSpaceArea(attrs.outdoor_space.outdoor_space_area_square_metres.toString())
             }
+            
+            // Only stop loading when we have all the data we need
+            setLoading(false)
+            setDataReady(true)
+          } else {
+            // If data structure is invalid, set propertyData to null but stop loading
+            setPropertyData(null)
+            setLoading(false)
+            // Don't set dataReady to true for invalid data
           }
         }
       } catch (e) {
         console.error('Failed to load property data', e)
-      } finally {
+        setPropertyData(null)
         setLoading(false)
+        // Don't set dataReady to true for errors
       }
     }
     loadData()
@@ -144,7 +183,31 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
     return () => {
       uploadedImages.forEach(img => URL.revokeObjectURL(img.previewUrl))
     }
-  }, [uploadedImages])
+  }, [])
+
+  // Dynamic analyzing messages
+  useEffect(() => {
+    if (currentStep !== 'analyzing') return
+
+    const messages = [
+      'Collecting property details...',
+      'Reviewing images...',
+      'Extracting refurbishment items...',
+      'Building schedule of work...'
+    ]
+    
+    let messageIndex = 0
+    setAnalyzingMessage(messages[0])
+
+    const interval = setInterval(() => {
+      messageIndex++
+      if (messageIndex < messages.length) {
+        setAnalyzingMessage(messages[messageIndex])
+      }
+    }, 4000 + Math.random() * 3000) // Random delay between 4-7 seconds
+
+    return () => clearInterval(interval)
+  }, [currentStep])
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -365,6 +428,254 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
     setNewExcludeItem('')
     setEstimationResult(null)
     setErrorMessage(null)
+    setEditingItem(null)
+    setEditAmounts({})
+  }
+
+  // Edit functions
+  const startEditingItem = (index: number) => {
+    setEditingItem(index)
+    if (!editAmounts[index] && estimationResult) {
+      const item = estimationResult.items[index]
+      setEditAmounts(prev => ({
+        ...prev,
+        [index]: {
+          basic: item.total_cost_basic,
+          standard: item.total_cost_standard,
+          premium: item.total_cost_premium
+        }
+      }))
+    }
+  }
+
+  const saveEditItem = (index: number) => {
+    if (!estimationResult) return
+    
+    const updatedItems = [...estimationResult.items]
+    const editedAmounts = editAmounts[index]
+    
+    if (editedAmounts) {
+      updatedItems[index] = {
+        ...updatedItems[index],
+        total_cost_basic: editedAmounts.basic,
+        total_cost_standard: editedAmounts.standard,
+        total_cost_premium: editedAmounts.premium
+      }
+    }
+    
+    // Recalculate totals
+    const total_cost_basic = updatedItems.reduce((sum, item) => sum + item.total_cost_basic, 0)
+    const total_cost_standard = updatedItems.reduce((sum, item) => sum + item.total_cost_standard, 0)
+    const total_cost_premium = updatedItems.reduce((sum, item) => sum + item.total_cost_premium, 0)
+    
+    setEstimationResult({
+      ...estimationResult,
+      items: updatedItems,
+      total_cost_basic,
+      total_cost_standard,
+      total_cost_premium
+    })
+    
+    setEditingItem(null)
+  }
+
+  const cancelEditItem = () => {
+    setEditingItem(null)
+  }
+
+  const deleteItem = (index: number) => {
+    if (!estimationResult) return
+    
+    const updatedItems = estimationResult.items.filter((_, i) => i !== index)
+    
+    // Recalculate totals
+    const total_cost_basic = updatedItems.reduce((sum, item) => sum + item.total_cost_basic, 0)
+    const total_cost_standard = updatedItems.reduce((sum, item) => sum + item.total_cost_standard, 0)
+    const total_cost_premium = updatedItems.reduce((sum, item) => sum + item.total_cost_premium, 0)
+    
+    setEstimationResult({
+      ...estimationResult,
+      items: updatedItems,
+      total_cost_basic,
+      total_cost_standard,
+      total_cost_premium
+    })
+    
+    // Clean up edit amounts
+    const newEditAmounts = { ...editAmounts }
+    delete newEditAmounts[index]
+    setEditAmounts(newEditAmounts)
+  }
+
+  const updateEditAmount = (index: number, level: 'basic' | 'standard' | 'premium', value: number) => {
+    setEditAmounts(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        [level]: value
+      }
+    }))
+  }
+
+  // Debug functions
+  const debugShowLoading = () => {
+    setCurrentStep('analyzing')
+    setErrorMessage(null)
+  }
+
+  const debugShowResults = () => {
+    const fakeResult: EstimationResult = {
+      items: [
+        {
+          category: 'Kitchen',
+          item_name: 'Kitchen Refurbishment',
+          description: 'Complete kitchen renovation including cabinets, worktops, and appliances',
+          quantity: 1,
+          unit: 'kitchen',
+          unit_cost_basic: 15000,
+          total_cost_basic: 15000,
+          unit_cost_standard: 25000,
+          total_cost_standard: 25000,
+          unit_cost_premium: 40000,
+          total_cost_premium: 40000,
+          notes: 'Includes all fixtures and fittings'
+        },
+        {
+          category: 'Bathroom',
+          item_name: 'Bathroom Refurbishment',
+          description: 'Complete bathroom renovation including sanitaryware, tiling, and fixtures',
+          quantity: 2,
+          unit: 'bathroom',
+          unit_cost_basic: 8000,
+          total_cost_basic: 16000,
+          unit_cost_standard: 12000,
+          total_cost_standard: 24000,
+          unit_cost_premium: 18000,
+          total_cost_premium: 36000,
+          notes: 'Per bathroom'
+        },
+        {
+          category: 'Flooring',
+          item_name: 'Flooring Installation',
+          description: 'New flooring throughout property including preparation and installation',
+          quantity: 85,
+          unit: 'm²',
+          unit_cost_basic: 45,
+          total_cost_basic: 3825,
+          unit_cost_standard: 75,
+          total_cost_standard: 6375,
+          unit_cost_premium: 120,
+          total_cost_premium: 10200,
+          notes: 'Based on property area'
+        },
+        {
+          category: 'Electrical',
+          item_name: 'Electrical Rewiring',
+          description: 'Complete electrical rewiring including consumer unit, sockets, and lighting',
+          quantity: 1,
+          unit: 'property',
+          unit_cost_basic: 8000,
+          total_cost_basic: 8000,
+          unit_cost_standard: 12000,
+          total_cost_standard: 12000,
+          unit_cost_premium: 18000,
+          total_cost_premium: 18000,
+          notes: 'Includes all electrical work and certification'
+        },
+        {
+          category: 'Plumbing',
+          item_name: 'Plumbing Installation',
+          description: 'Complete plumbing system including pipework, radiators, and boiler',
+          quantity: 1,
+          unit: 'property',
+          unit_cost_basic: 6000,
+          total_cost_basic: 6000,
+          unit_cost_standard: 9000,
+          total_cost_standard: 9000,
+          unit_cost_premium: 14000,
+          total_cost_premium: 14000,
+          notes: 'Includes new boiler and heating system'
+        },
+        {
+          category: 'Windows',
+          item_name: 'Window Replacement',
+          description: 'Double glazed window replacement throughout property',
+          quantity: 8,
+          unit: 'window',
+          unit_cost_basic: 400,
+          total_cost_basic: 3200,
+          unit_cost_standard: 600,
+          total_cost_standard: 4800,
+          unit_cost_premium: 900,
+          total_cost_premium: 7200,
+          notes: 'Energy efficient double glazing'
+        },
+        {
+          category: 'Doors',
+          item_name: 'Door Replacement',
+          description: 'Internal and external door replacement including frames',
+          quantity: 6,
+          unit: 'door',
+          unit_cost_basic: 300,
+          total_cost_basic: 1800,
+          unit_cost_standard: 500,
+          total_cost_standard: 3000,
+          unit_cost_premium: 800,
+          total_cost_premium: 4800,
+          notes: 'Includes front door and internal doors'
+        },
+        {
+          category: 'Painting',
+          item_name: 'Interior Painting',
+          description: 'Complete interior painting including walls, ceilings, and woodwork',
+          quantity: 85,
+          unit: 'm²',
+          unit_cost_basic: 15,
+          total_cost_basic: 1275,
+          unit_cost_standard: 25,
+          total_cost_standard: 2125,
+          unit_cost_premium: 40,
+          total_cost_premium: 3400,
+          notes: 'High quality paint and preparation'
+        },
+        {
+          category: 'Carpentry',
+          item_name: 'Carpentry Work',
+          description: 'Skirting boards, architraves, and general carpentry repairs',
+          quantity: 1,
+          unit: 'property',
+          unit_cost_basic: 2000,
+          total_cost_basic: 2000,
+          unit_cost_standard: 3500,
+          total_cost_standard: 3500,
+          unit_cost_premium: 5500,
+          total_cost_premium: 5500,
+          notes: 'Includes all trim work and repairs'
+        },
+        {
+          category: 'Insulation',
+          item_name: 'Insulation Installation',
+          description: 'Loft and wall insulation to improve energy efficiency',
+          quantity: 1,
+          unit: 'property',
+          unit_cost_basic: 3000,
+          total_cost_basic: 3000,
+          unit_cost_standard: 4500,
+          total_cost_standard: 4500,
+          unit_cost_premium: 7000,
+          total_cost_premium: 7000,
+          notes: 'Energy efficiency improvements'
+        }
+      ],
+      total_cost_basic: 60905,
+      total_cost_standard: 91125,
+      total_cost_premium: 139500,
+      summary: 'Comprehensive refurbishment estimate covering all major renovation work including kitchen, bathrooms, flooring, electrical, plumbing, windows, doors, painting, carpentry, and insulation. This complete renovation will bring the property to modern standards with improved energy efficiency.',
+      error: ''
+    }
+    setEstimationResult(fakeResult)
+    setCurrentStep('results')
+    setErrorMessage(null)
   }
 
   const handleApplyToCalculator = () => {
@@ -446,21 +757,34 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
   const canProceedToFineTune = uploadedImages.length >= 5
   const canStartAnalysis = canProceedToFineTune
 
-  if (loading) {
+  if (!dataReady) {
     return (
-      <div className="text-center py-8">
-        <div className="text-gray-400 animate-enter-subtle">
-          Loading...
+      <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl overflow-hidden shadow-lg">
+        <div className="px-5 py-3 bg-gradient-to-r from-purple-600 to-purple-700">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-white/20 animate-pulse"></div>
+            <h3 className="text-lg font-bold text-white">
+              {loading ? '' : 'Property not found. Please try again.'}
+            </h3>
+          </div>
         </div>
-      </div>
-    )
-  }
-
-  if (!propertyData) {
-    return (
-      <div className="text-center py-8">
-        <div className="text-gray-400 animate-enter-subtle">
-          Property not found. Please try again.
+        <div className="p-6 space-y-6">
+          {/* Property Details Skeleton */}
+          <div className="space-y-4">
+            <div className="h-4 bg-gray-700/30 rounded w-3/4 animate-pulse"></div>
+            <div className="flex flex-wrap gap-3">
+              <div className="h-10 bg-gray-700/30 rounded-lg w-64 animate-pulse"></div>
+              <div className="h-8 bg-gray-700/30 rounded-lg w-32 animate-pulse"></div>
+            </div>
+            <div className="h-12 bg-gray-700/30 rounded w-full animate-pulse"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="h-12 bg-gray-700/30 rounded animate-pulse"></div>
+              <div className="h-12 bg-gray-700/30 rounded animate-pulse"></div>
+              <div className="h-12 bg-gray-700/30 rounded animate-pulse"></div>
+              <div className="h-12 bg-gray-700/30 rounded animate-pulse"></div>
+            </div>
+            <div className="h-10 bg-gray-700/30 rounded w-32 animate-pulse"></div>
+          </div>
         </div>
       </div>
     )
@@ -468,14 +792,34 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
 
   return (
     <div className="space-y-6">
-      {/* Property Info */}
-      <div className="text-center animate-enter-subtle">
-        <h2 className="text-2xl font-bold text-white mb-2">
-          AI Refurbishment Estimator
-        </h2>
-        <p className="text-gray-400">
-          {getPropertyValue('address.street_group_format.address_lines')}, {getPropertyValue('address.street_group_format.postcode')}
-        </p>
+      {/* Debug Buttons - TEMPORARY */}
+      <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          <span className="text-yellow-400 text-sm font-medium">DEBUG MODE</span>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={debugShowLoading}
+            className="px-3 py-1.5 text-sm bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors"
+          >
+            Show Loading State
+          </button>
+          <button
+            onClick={debugShowResults}
+            className="px-3 py-1.5 text-sm bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors"
+          >
+            Show Results (Fake Data)
+          </button>
+          <button
+            onClick={handleReset}
+            className="px-3 py-1.5 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+          >
+            Reset to Step 1
+          </button>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -494,28 +838,30 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
       {currentStep !== 'analyzing' && currentStep !== 'results' && (
         <>
           {/* Step 1: Confirm Property Details */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+          <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl overflow-hidden shadow-lg">
             <div className={`px-5 py-3 flex items-center justify-between ${
               currentStep === 'details'
-                ? 'bg-gradient-to-r from-blue-600 to-blue-700'
-                : 'bg-gray-700'
+                ? 'bg-purple-500/20'
+                : 'bg-black/20'
             }`}>
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                   currentStep === 'details'
-                    ? 'bg-white text-blue-600'
+                    ? 'bg-purple-100 text-purple-600'
                     : 'bg-gray-600 text-gray-400'
                 }`}>
                   1
                 </div>
-                <h3 className="text-lg font-bold text-white">Confirm Property Details</h3>
+                <h3 className={`text-lg font-bold ${
+                  currentStep === 'details' ? 'text-purple-100' : 'text-white'
+                }`}>Confirm Property Details</h3>
               </div>
               <div className="flex items-center gap-2">
                 {currentStep !== 'details' && (
                   <>
                     <button
                       onClick={() => setCurrentStep('details')}
-                      className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center gap-1"
+                      className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors flex items-center gap-1"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -531,118 +877,116 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
             </div>
             
             {currentStep === 'details' && (
-              <div className="p-5 space-y-4">
+              <div className="p-6 space-y-4">
                 <p className="text-sm text-gray-400 mb-4">
-                  Review and confirm the property details below (optional fields can be left empty)
+                  We will pass these details as additional context to the AI Agent
                 </p>
                 
-                {/* Number of beds */}
-                <div>
-                  <label className="text-sm font-medium text-gray-300 mb-1 block">
-                    Number of Bedrooms
-                  </label>
-                  <input
-                    type="text"
-                    value={numBeds}
-                    onChange={(e) => setNumBeds(e.target.value)}
-                    placeholder="e.g., 3"
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
-                  />
-                </div>
 
-                {/* Number of baths */}
-                <div>
-                  <label className="text-sm font-medium text-gray-300 mb-1 block">
-                    Number of Bathrooms
-                  </label>
-                  <input
-                    type="text"
-                    value={numBaths}
-                    onChange={(e) => setNumBaths(e.target.value)}
-                    placeholder="e.g., 2"
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
-                  />
-                </div>
+                {/* Two column layout for remaining fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Number of beds */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-300 mb-1 block">
+                      Number of Bedrooms
+                    </label>
+                    <input
+                      type="text"
+                      value={numBeds}
+                      onChange={(e) => setNumBeds(e.target.value)}
+                      placeholder="e.g., 3"
+                      className="w-full bg-black/20 border border-gray-500/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-colors"
+                    />
+                  </div>
 
-                {/* Square meters */}
-                <div>
-                  <label className="text-sm font-medium text-gray-300 mb-1 block">
-                    Square Meters (Internal Area)
-                  </label>
-                  <input
-                    type="text"
-                    value={squareMeters}
-                    onChange={(e) => setSquareMeters(e.target.value)}
-                    placeholder="e.g., 85"
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
-                  />
-                </div>
+                  {/* Number of baths */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-300 mb-1 block">
+                      Number of Bathrooms
+                    </label>
+                    <input
+                      type="text"
+                      value={numBaths}
+                      onChange={(e) => setNumBaths(e.target.value)}
+                      placeholder="e.g., 2"
+                      className="w-full bg-black/20 border border-gray-500/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-colors"
+                    />
+                  </div>
 
-                {/* Property type */}
-                <div>
-                  <label className="text-sm font-medium text-gray-300 mb-1 block">
-                    Type of Property
-                  </label>
-                  <input
-                    type="text"
-                    value={propertyType}
-                    disabled={true}
-                    placeholder="Not available"
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 cursor-not-allowed opacity-75"
-                  />
-                </div>
+                  {/* Square meters */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-300 mb-1 block">
+                      Square Meters (Internal Area)
+                    </label>
+                    <input
+                      type="text"
+                      value={squareMeters}
+                      onChange={(e) => setSquareMeters(e.target.value)}
+                      placeholder="e.g., 85"
+                      className="w-full bg-black/20 border border-gray-500/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-colors"
+                    />
+                  </div>
 
-                {/* Outdoor space area */}
-                <div>
-                  <label className="text-sm font-medium text-gray-300 mb-1 block">
-                    Outdoor Space Area (m²)
-                  </label>
-                  <input
-                    type="text"
-                    value={outdoorSpaceArea}
-                    onChange={(e) => setOutdoorSpaceArea(e.target.value)}
-                    placeholder="e.g., 50"
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
-                  />
+                  {/* Outdoor space area */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-300 mb-1 block">
+                      Outdoor Space Area (m²)
+                    </label>
+                    <input
+                      type="text"
+                      value={outdoorSpaceArea}
+                      onChange={(e) => setOutdoorSpaceArea(e.target.value)}
+                      placeholder="e.g., 50"
+                      className="w-full bg-black/20 border border-gray-500/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-colors"
+                    />
+                  </div>
                 </div>
 
                 {/* Confirm button */}
-                <button
-                  onClick={handleConfirmDetails}
-                  className="w-full py-3 px-6 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  Confirm Details
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+                <div className="flex justify-start">
+                  <button
+                    onClick={handleConfirmDetails}
+                    className="py-2 px-4 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-medium transition-colors flex items-center gap-2"
+                  >
+                    Confirm Details
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             )}
           </div>
 
           {/* Step 2: Upload Images */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden transition-all duration-300">
+          <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl overflow-hidden transition-all duration-300 shadow-lg">
             <div className={`px-5 py-3 flex items-center justify-between ${
               currentStep === 'upload'
-                ? 'bg-gradient-to-r from-blue-600 to-blue-700'
-                : 'bg-gray-700'
+                ? 'bg-purple-500/20'
+                : currentStep === 'details'
+                ? 'bg-gray-500/20 opacity-60'
+                : 'bg-black/20'
             }`}>
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                   currentStep === 'upload'
-                    ? 'bg-white text-blue-600'
+                    ? 'bg-purple-100 text-purple-600'
+                    : currentStep === 'details'
+                    ? 'bg-gray-500 text-gray-300'
                     : 'bg-gray-600 text-gray-400'
                 }`}>
                   2
                 </div>
-                <h3 className="text-lg font-bold text-white">Upload Images</h3>
+                <h3 className={`text-lg font-bold ${
+                  currentStep === 'details' ? 'text-gray-400' : currentStep === 'upload' ? 'text-purple-100' : 'text-white'
+                }`}>Upload Images</h3>
               </div>
               <div className="flex items-center gap-2">
-                {uploadedImages.length >= 5 && currentStep !== 'details' && currentStep !== 'upload' && (
+                {uploadedImages.length >= 5 && currentStep !== 'upload' && currentStep !== 'details' && (
                   <>
                     <button
                       onClick={() => setCurrentStep('upload')}
-                      className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center gap-1"
+                      className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors flex items-center gap-1"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -662,8 +1006,8 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
               </div>
             </div>
             
-            {(currentStep === 'upload' || currentStep === 'details') && (
-              <div className="p-5">
+            {currentStep === 'upload' && (
+              <div className="p-6">
                 <p className="text-sm text-gray-400 mb-4">
                   Upload 5-15 images of the property ({uploadedImages.length}/15)
                 </p>
@@ -693,7 +1037,7 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
                   className={`relative border-2 border-dashed rounded-lg p-6 transition-all duration-300 ${
                     dragActive
                       ? 'border-blue-500 bg-blue-900/20'
-                      : 'border-gray-600 bg-gray-700/20 hover:border-gray-500'
+                      : 'border-gray-500/30 bg-black/20 hover:border-gray-500/50'
                   } ${uploadedImages.length >= 15 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   <input
@@ -741,7 +1085,7 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
                     {uploadedImages.map((image) => (
                       <div
                         key={image.id}
-                        className="relative group bg-gray-700 rounded-lg overflow-hidden aspect-square"
+                        className="relative group bg-black/20 rounded-lg overflow-hidden aspect-square"
                       >
                         <img
                           src={image.previewUrl}
@@ -774,36 +1118,44 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
 
                 {/* Proceed button */}
                 {uploadedImages.length >= 5 && (
-                  <button
-                    onClick={() => setCurrentStep('finetune')}
-                    className="w-full mt-4 py-3 px-6 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium transition-colors flex items-center justify-center gap-2"
-                  >
-                    Continue
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
+                  <div className="flex justify-start mt-4">
+                    <button
+                      onClick={() => setCurrentStep('finetune')}
+                      className="py-2 px-4 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-medium transition-colors flex items-center gap-2"
+                    >
+                      Continue
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
                 )}
               </div>
             )}
           </div>
 
           {/* Step 3: Fine-tune Your Estimate */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden transition-all duration-300">
+          <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl overflow-hidden transition-all duration-300 shadow-lg">
             <div className={`px-5 py-3 flex items-center justify-between ${
               currentStep === 'finetune' 
-                ? 'bg-gradient-to-r from-blue-600 to-blue-700' 
-                : 'bg-gray-700'
+                ? 'bg-purple-500/20' 
+                : !canProceedToFineTune
+                ? 'bg-gray-500/20 opacity-60'
+                : 'bg-black/20'
             }`}>
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                   currentStep === 'finetune' 
-                    ? 'bg-white text-blue-600' 
+                    ? 'bg-purple-100 text-purple-600' 
+                    : !canProceedToFineTune
+                    ? 'bg-gray-500 text-gray-300'
                     : 'bg-gray-600 text-gray-400'
                 }`}>
                   3
                 </div>
-                <h3 className="text-lg font-bold text-white">Fine-tune estimate</h3>
+                <h3 className={`text-lg font-bold ${
+                  !canProceedToFineTune ? 'text-gray-400' : currentStep === 'finetune' ? 'text-purple-100' : 'text-white'
+                }`}>Fine-tune estimate</h3>
               </div>
               <div className="flex items-center gap-2">
                 {currentStep !== 'finetune' && !canProceedToFineTune && (
@@ -815,7 +1167,7 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
             </div>
             
             {currentStep === 'finetune' && (
-              <div className="p-5 space-y-4">
+              <div className="p-6 space-y-4">
                 {/* Items to Include */}
                 <div>
                   <label className="text-sm font-medium text-gray-300 mb-1 block">
@@ -831,13 +1183,13 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
                       onChange={(e) => setNewIncludeItem(e.target.value)}
                       onKeyPress={handleIncludeKeyPress}
                       placeholder="Type item and press Enter or click Add"
-                      className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                      className="flex-1 bg-black/20 border border-gray-500/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-colors"
                     />
                     <button
                       type="button"
                       onClick={addIncludeItem}
                       disabled={!newIncludeItem.trim()}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-1"
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-1"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -848,7 +1200,7 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
                   {itemsToInclude.length > 0 && (
                     <div className="space-y-2">
                       {itemsToInclude.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between bg-gray-700 rounded-lg px-3 py-2">
+                        <div key={index} className="flex items-center justify-between bg-black/20 rounded-lg px-3 py-2">
                           <span className="text-white text-sm">{item}</span>
                           <button
                             type="button"
@@ -880,13 +1232,13 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
                       onChange={(e) => setNewExcludeItem(e.target.value)}
                       onKeyPress={handleExcludeKeyPress}
                       placeholder="Type item and press Enter or click Add"
-                      className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                      className="flex-1 bg-black/20 border border-gray-500/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-colors"
                     />
                     <button
                       type="button"
                       onClick={addExcludeItem}
                       disabled={!newExcludeItem.trim()}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-1"
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors flex items-center gap-1"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -897,7 +1249,7 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
                   {itemsToExclude.length > 0 && (
                     <div className="space-y-2">
                       {itemsToExclude.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between bg-gray-700 rounded-lg px-3 py-2">
+                        <div key={index} className="flex items-center justify-between bg-black/20 rounded-lg px-3 py-2">
                           <span className="text-white text-sm">{item}</span>
                           <button
                             type="button"
@@ -924,7 +1276,7 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
               disabled={currentStep !== 'finetune'}
               className={`py-3 px-8 rounded-lg font-bold text-lg transition-all duration-300 flex items-center gap-2 ${
                 currentStep === 'finetune'
-                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl'
+                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg hover:shadow-xl'
                   : 'bg-gray-700 text-gray-500 cursor-not-allowed'
               }`}
             >
@@ -939,12 +1291,12 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
 
       {/* Analyzing State */}
       {currentStep === 'analyzing' && (
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center animate-enter-subtle">
+        <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-8 text-center animate-enter-subtle shadow-lg">
           <div className="mb-6">
             <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-t-2 border-blue-500"></div>
           </div>
-          <h3 className="text-2xl font-bold text-white mb-2">AI Agent Analyzing</h3>
-          <p className="text-gray-400">This may take a few moments...</p>
+          <h3 className="text-2xl font-bold text-white mb-2">Our AI Agent is working</h3>
+          <p className="text-gray-400 transition-all duration-500">{analyzingMessage}</p>
         </div>
       )}
 
@@ -952,11 +1304,18 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
       {currentStep === 'results' && estimationResult && (
         <div className="space-y-6 animate-enter-subtle">
           {/* Results Header */}
-          <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 rounded-xl border border-blue-700/50 p-6">
+          <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="text-2xl font-bold text-white mb-2">Refurbishment Estimate</h3>
-                <p className="text-gray-300 mb-3">{estimationResult.summary}</p>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-2xl font-bold text-white">AI Refurbishment Quote</h3>
+                </div>
+                <p className="text-gray-300 mb-4">{estimationResult.summary}</p>
               </div>
               <div className="ml-6 text-right">
                 {/* Level Selector */}
@@ -969,8 +1328,8 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
                         onClick={() => setSelectedLevel(level)}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                           selectedLevel === level
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-black/20 text-gray-300 hover:bg-gray-500/20'
                         }`}
                       >
                         {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -988,48 +1347,11 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
             </div>
           </div>
 
-          {/* Items List */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-            <h4 className="text-lg font-semibold text-white mb-4">Itemized Breakdown</h4>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {estimationResult.items.map((item, index) => (
-                <div key={index} className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-1 bg-blue-900/50 text-blue-300 text-xs rounded-full">
-                          {item.category}
-                        </span>
-                        <h5 className="text-white font-semibold">{item.item_name}</h5>
-                      </div>
-                      <p className="text-gray-400 text-sm mb-2">{item.description}</p>
-                      {item.notes && (
-                        <p className="text-gray-500 text-xs italic">Note: {item.notes}</p>
-                      )}
-                    </div>
-                    <div className="ml-4 text-right">
-                      <p className="text-gray-400 text-sm">
-                        {item.quantity} {item.unit} × £{selectedLevel === 'basic' ? item.unit_cost_basic.toLocaleString() :
-                          selectedLevel === 'standard' ? item.unit_cost_standard.toLocaleString() :
-                          item.unit_cost_premium.toLocaleString()}
-                      </p>
-                      <p className="text-xl font-bold text-white">
-                        £{selectedLevel === 'basic' ? item.total_cost_basic.toLocaleString() :
-                          selectedLevel === 'standard' ? item.total_cost_standard.toLocaleString() :
-                          item.total_cost_premium.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4">
             <button
               onClick={handleReset}
-              className="flex-1 py-3 px-6 rounded-lg bg-gray-700 hover:bg-gray-600 text-white font-medium transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-3 px-6 rounded-lg bg-black/20 hover:bg-gray-500/20 text-white font-medium transition-colors flex items-center justify-center gap-2 border border-gray-500/30"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1047,13 +1369,135 @@ export default function RefurbishmentEstimator({ uprn, onDataUpdate }: Refurbish
             </button>
             <button
               onClick={exportToCSV}
-              className="py-3 px-6 rounded-lg bg-gray-700 hover:bg-gray-600 text-white font-medium transition-colors flex items-center justify-center gap-2"
+              className="py-3 px-6 rounded-lg bg-black/20 hover:bg-gray-500/20 text-white font-medium transition-colors flex items-center justify-center gap-2 border border-gray-500/30"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               Export CSV
             </button>
+          </div>
+
+          {/* Schedule of Work */}
+          <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
+            <div className="mb-4">
+              <h4 className="text-lg font-semibold text-white">Schedule of Work</h4>
+            </div>
+            <div className="space-y-3">
+              {estimationResult.items.map((item, index) => (
+                <div key={index} className="bg-black/20 rounded-lg p-4 border border-gray-500/30 hover:border-purple-500/30 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="px-3 py-1 bg-purple-900/50 text-purple-300 text-xs rounded-full font-medium">
+                          {item.category}
+                        </span>
+                        <h5 className="text-white font-semibold">{item.item_name}</h5>
+                        <div className="flex gap-1 ml-auto">
+                          {editingItem === index ? (
+                            <>
+                              <button
+                                onClick={() => saveEditItem(index)}
+                                className="p-1.5 bg-green-600 hover:bg-green-700 rounded-md transition-colors"
+                                title="Save changes"
+                              >
+                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={cancelEditItem}
+                                className="p-1.5 bg-gray-600 hover:bg-gray-700 rounded-md transition-colors"
+                                title="Cancel"
+                              >
+                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => startEditingItem(index)}
+                                className="p-1.5 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                                title="Edit amounts"
+                              >
+                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => deleteItem(index)}
+                                className="p-1.5 bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                                title="Delete item"
+                              >
+                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-gray-400 text-sm mb-2">{item.description}</p>
+                      {item.notes && (
+                        <div className="bg-gray-800/30 rounded-lg p-2 border border-gray-600/30">
+                          <p className="text-gray-300 text-xs">
+                            <span className="text-gray-400 font-medium">Note:</span> {item.notes}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="ml-4 text-right">
+                      {editingItem === index ? (
+                        <div className="space-y-2">
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs text-gray-400">Basic</label>
+                            <input
+                              type="number"
+                              value={editAmounts[index]?.basic || 0}
+                              onChange={(e) => updateEditAmount(index, 'basic', parseFloat(e.target.value) || 0)}
+                              className="w-20 bg-black/20 border border-gray-500/30 rounded px-2 py-1 text-white text-sm"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs text-gray-400">Standard</label>
+                            <input
+                              type="number"
+                              value={editAmounts[index]?.standard || 0}
+                              onChange={(e) => updateEditAmount(index, 'standard', parseFloat(e.target.value) || 0)}
+                              className="w-20 bg-black/20 border border-gray-500/30 rounded px-2 py-1 text-white text-sm"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs text-gray-400">Premium</label>
+                            <input
+                              type="number"
+                              value={editAmounts[index]?.premium || 0}
+                              onChange={(e) => updateEditAmount(index, 'premium', parseFloat(e.target.value) || 0)}
+                              className="w-20 bg-black/20 border border-gray-500/30 rounded px-2 py-1 text-white text-sm"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-gray-400 text-sm mb-1">
+                            {item.quantity} {item.unit} × £{selectedLevel === 'basic' ? item.unit_cost_basic.toLocaleString() :
+                              selectedLevel === 'standard' ? item.unit_cost_standard.toLocaleString() :
+                              item.unit_cost_premium.toLocaleString()}
+                          </p>
+                          <p className="text-xl font-bold text-purple-400">
+                            £{selectedLevel === 'basic' ? item.total_cost_basic.toLocaleString() :
+                              selectedLevel === 'standard' ? item.total_cost_standard.toLocaleString() :
+                              item.total_cost_premium.toLocaleString()}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

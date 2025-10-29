@@ -130,6 +130,7 @@ interface ComparablesAnalysisProps {
   onSelectedTransactionsChange?: (transactions: ComparableTransaction[]) => void
   onRemoveComparable?: (transactionId: string) => void
   selectedPanelOpen?: boolean
+  refreshTrigger?: number
 }
 
 // Loading Skeleton Component
@@ -898,7 +899,8 @@ export default function ComparablesAnalysis({
   onSelectedPanelOpen,
   onSelectedTransactionsChange,
   onRemoveComparable,
-  selectedPanelOpen = false
+  selectedPanelOpen = false,
+  refreshTrigger
 }: ComparablesAnalysisProps) {
   // State
   const [selectedComparableIds, setSelectedComparableIds] = useState<string[]>([])
@@ -960,7 +962,7 @@ export default function ComparablesAnalysis({
     return Array.from(propertyMap.values())
   }, [nearbyTransactions])
 
-  // Load saved data on mount
+  // Load saved data on mount and when refreshTrigger changes
   useEffect(() => {
     const loadSavedData = async () => {
       setIsLoadingValuation(true)
@@ -984,7 +986,7 @@ export default function ComparablesAnalysis({
     }
     
     loadSavedData()
-  }, [uprn])
+  }, [uprn, refreshTrigger])
 
   // Notify parent when selected count changes
   useEffect(() => {

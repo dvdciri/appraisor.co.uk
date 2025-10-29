@@ -11,6 +11,7 @@ const nextConfig = {
       'lh5.googleusercontent.com',
       'lh6.googleusercontent.com',
       'cdn.data.street.co.uk',
+      'media.rightmove.co.uk',
     ],
   },
 }

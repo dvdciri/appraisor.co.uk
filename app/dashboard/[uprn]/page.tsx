@@ -20,9 +20,9 @@ const sections = [
   { id: 'risk-assessment' as Section, label: 'Risk Assessment', icon: '⚠️' },
   { id: 'market-analysis' as Section, label: 'Market Analysis', icon: '📊' },
   { id: 'nearby-listings' as Section, label: 'Nearby Listings', icon: '📍' },
-  { id: 'sold-comparables' as Section, label: 'Property Valuation', icon: '🏘️' },
-  { id: 'investment-calculator' as Section, label: 'Investment Calculator', icon: '💰' },
-  { id: 'ai-refurbishment' as Section, label: 'AI Refurbishment Estimator', icon: '🤖' },
+  { id: 'sold-comparables' as Section, label: 'Property Valuation', icon: '💰' },
+  { id: 'ai-refurbishment' as Section, label: 'AI Refurbishment Quote', icon: '🏚️' },
+  { id: 'investment-calculator' as Section, label: 'Investment Calculator', icon: '📈' },
 ]
 
 const subsections = {
@@ -843,6 +843,7 @@ export default function DashboardV1() {
   const [navigationSource, setNavigationSource] = useState<'main' | 'selected'>('main')
   const [selectedComparablesCount, setSelectedComparablesCount] = useState(0)
   const [selectedComparablesTransactions, setSelectedComparablesTransactions] = useState<any[]>([])
+  const [comparablesRefreshTrigger, setComparablesRefreshTrigger] = useState(0)
   const [propertyData, setPropertyData] = useState<PropertyData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -1081,13 +1082,52 @@ export default function DashboardV1() {
     setPanelNavigation('selected')
   }
 
-  const handleRemoveComparable = (transactionId: string) => {
-    // Remove from selected transactions list
+  const handleRemoveComparable = async (transactionId: string) => {
+    // Remove from selected transactions list (UI update)
     setSelectedComparablesTransactions(prev => 
       prev.filter(transaction => transaction.street_group_property_id !== transactionId)
     )
     // Update count
     setSelectedComparablesCount(prev => prev - 1)
+    
+    // Persist removal to database
+    try {
+      // Fetch current comparables data
+      const response = await fetch(`/api/db/comparables?uprn=${encodeURIComponent(uprn)}`)
+      if (!response.ok) {
+        console.error('Failed to fetch comparables data:', response.status, response.statusText)
+        return
+      }
+      
+      const data = await response.json()
+      const currentIds = data.selected_comparable_ids || []
+      
+      // Remove the transactionId from the list
+      const updatedIds = currentIds.filter((id: string) => id !== transactionId)
+      
+      // Save updated list back to database
+      const saveResponse = await fetch('/api/db/comparables', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uprn,
+          selected_comparable_ids: updatedIds,
+          valuation_strategy: data.valuation_strategy || 'average',
+          calculated_valuation: data.calculated_valuation || null
+        })
+      })
+      
+      if (!saveResponse.ok) {
+        console.error('Failed to save comparables data:', saveResponse.status, saveResponse.statusText)
+      } else {
+        // Trigger refresh of ComparablesAnalysis component
+        setComparablesRefreshTrigger(prev => prev + 1)
+      }
+    } catch (error) {
+      console.error('Error removing comparable from database:', error)
+    }
   }
 
   // Show loading while checking authentication
@@ -1261,7 +1301,7 @@ export default function DashboardV1() {
                 >
                   <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
                     <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Sections</h2>
-                    <nav className="space-y-2">
+                    <nav className="space-y-1">
                       {sections.map((section) => (
                         <button
                           key={section.id}
@@ -1278,7 +1318,7 @@ export default function DashboardV1() {
                               setSelectedTransaction(null)
                             }
                           }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border ${
+                          className={`w-full flex items-center gap-2 px-2 py-2 rounded-xl text-left transition-all duration-200 border ${
                             activeSection === section.id
                               ? 'bg-purple-500/20 text-purple-100 border-purple-400/30'
                               : 'text-gray-300 hover:text-gray-100 hover:bg-gray-500/10 border-transparent'
@@ -1700,6 +1740,7 @@ export default function DashboardV1() {
                                 onSelectedTransactionsChange={setSelectedComparablesTransactions}
                                 onRemoveComparable={handleRemoveComparable}
                                 selectedPanelOpen={selectedComparablesPanelOpen}
+                                refreshTrigger={comparablesRefreshTrigger}
                               />
                             ) : (
                               <div className="text-center py-8 text-gray-400">
@@ -1807,7 +1848,11 @@ export default function DashboardV1() {
         {/* Selected Comparables Panel */}
         <GenericPanel
           isOpen={activeSection === 'sold-comparables' && panelNavigation === 'selected'}
-          onClose={() => setPanelNavigation('none')}
+          onClose={() => {
+            setPanelNavigation('none')
+            // Refresh comparables data when closing panel
+            setComparablesRefreshTrigger(prev => prev + 1)
+          }}
           title={`Selected Comparables (${selectedComparablesCount})`}
           isLargeScreen={isLargeScreen}
           zIndex={1000}
