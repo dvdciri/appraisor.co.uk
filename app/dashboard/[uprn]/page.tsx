@@ -4,6 +4,16 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Image from 'next/image'
+import { 
+  Home, 
+  AlertTriangle, 
+  BarChart3, 
+  MapPin, 
+  DollarSign, 
+  Wrench, 
+  Calculator 
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import InvestmentCalculator from '../components/InvestmentCalculator'
 import ComparablesAnalysis, { renderTransactionDetails } from '../components/ComparablesAnalysis'
 import GenericPanel from '../components/GenericPanel'
@@ -15,23 +25,29 @@ import RefurbishmentEstimator from '../components/RefurbishmentEstimator'
 
 type Section = 'property-details' | 'market-analysis' | 'sold-comparables' | 'investment-calculator' | 'ai-refurbishment' | 'risk-assessment' | 'nearby-listings'
 
-const sections = [
-  { id: 'property-details' as Section, label: 'Property Details', icon: '🏠' },
-  { id: 'risk-assessment' as Section, label: 'Risk Assessment', icon: '⚠️' },
-  { id: 'market-analysis' as Section, label: 'Market Analysis', icon: '📊' },
-  { id: 'nearby-listings' as Section, label: 'Nearby Listings', icon: '📍' },
-  { id: 'sold-comparables' as Section, label: 'Property Valuation', icon: '💰' },
-  { id: 'ai-refurbishment' as Section, label: 'AI Refurbishment Quote', icon: '🏚️' },
-  { id: 'investment-calculator' as Section, label: 'Investment Calculator', icon: '📈' },
+const detailsSections = [
+  { id: 'property-details' as Section, label: 'Property Info', icon: Home },
+  { id: 'risk-assessment' as Section, label: 'Risk Assessment', icon: AlertTriangle },
+  { id: 'market-analysis' as Section, label: 'Market Analysis', icon: BarChart3 },
+  { id: 'nearby-listings' as Section, label: 'Nearby Listings', icon: MapPin },
 ]
+
+const toolsSections = [
+  { id: 'sold-comparables' as Section, label: 'Property Valuation', icon: DollarSign },
+  { id: 'ai-refurbishment' as Section, label: 'AI Renovation Estimate', icon: Wrench },
+  { id: 'investment-calculator' as Section, label: 'Investment Calculator', icon: Calculator },
+]
+
+// Combine all sections for backward compatibility
+const sections = [...detailsSections, ...toolsSections]
 
 const subsections = {
   'property-details': [
-    { id: 'ownership', label: 'Ownership & Occupancy', icon: '🏠', description: 'Tenure type, ownership status, occupancy, and legal information' },
+    { id: 'energy', label: 'EPC Rating', icon: '⚡', description: 'Energy Performance Certificate ratings and efficiency details' },
+    { id: 'ownership', label: 'Ownership & Occupancy', icon: '🔑', description: 'Tenure type, ownership status, occupancy, and legal information' },
     { id: 'construction', label: 'Construction Details', icon: '🏗️', description: 'Building materials, construction age, and structural details' },
     { id: 'plot', label: 'Plot & Outdoor Space', icon: '🌳', description: 'Land area, garden space, and outdoor amenities' },
     { id: 'utilities', label: 'Utilities & Services', icon: '🔧', description: 'Water, drainage, heating, and utility connections' },
-    { id: 'energy', label: 'EPC Rating', icon: '⚡', description: 'Energy Performance Certificate ratings and efficiency details' },
   ],
 }
 
@@ -178,7 +194,6 @@ const PlotDataDisplay = ({ propertyData, getPropertyValue, formatArea }: { prope
       <div className="space-y-6">
         {/* Plot Details */}
         <div className="space-y-3">
-          <h5 className="text-md font-medium text-gray-300 mb-3">Plot Information</h5>
           {getPropertyValue('plot.total_plot_area_square_metres') !== 'N/A' && (
             <div className="flex justify-between items-center py-2 border-b border-gray-500/40">
               <span className="text-gray-400">Total Plot Area</span>
@@ -829,6 +844,102 @@ const PlotBoundaryVisualization = ({ coordinates }: { coordinates: any }) => {
   )
 }
 
+// Property Summary Component - Compact header showing essential property details
+const PropertySummary = ({ 
+  propertyData, 
+  getPropertyValue, 
+  copyToClipboard, 
+  formatArea 
+}: { 
+  propertyData: PropertyData | null
+  getPropertyValue: (path: string, fallback?: string) => any
+  copyToClipboard: (text: string, label: string) => void
+  formatArea: (squareMeters: number | string) => string
+}) => {
+  if (!propertyData) return null
+
+  return (
+    <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl shadow-2xl p-4 mb-4 w-full">
+      {/* Address and Postcode */}
+      <div className="flex items-center gap-2 mb-3">
+        <p className="text-gray-100 text-lg font-semibold">
+          {getPropertyValue('address.street_group_format.address_lines')}
+          {getPropertyValue('address.street_group_format.postcode') !== 'N/A' && (
+            <span className="text-gray-300 ml-2">
+              {getPropertyValue('address.street_group_format.postcode')}
+            </span>
+          )}
+        </p>
+        <button
+          onClick={() => copyToClipboard(
+            getPropertyValue('address.street_group_format.postcode') !== 'N/A'
+              ? `${getPropertyValue('address.street_group_format.address_lines')}, ${getPropertyValue('address.street_group_format.postcode')}`
+              : getPropertyValue('address.street_group_format.address_lines'),
+            'Address'
+          )}
+          className="p-1 rounded hover:bg-gray-500/20 transition-colors flex-shrink-0 ml-1"
+          title="Copy address"
+        >
+          <svg className="w-4 h-4 text-gray-400 hover:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Property Info Tags */}
+      <div className="flex flex-wrap gap-2">
+        {getPropertyValue('property_type.value') !== 'N/A' && (
+          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
+            <span className="text-gray-400 text-xs">Type:</span>
+            <span className="text-gray-100 font-medium text-xs">{getPropertyValue('property_type.value')}</span>
+          </div>
+        )}
+        {getPropertyValue('tenure.tenure_type') !== 'N/A' && (
+          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
+            <span className="text-gray-400 text-xs">Tenure:</span>
+            <span className="text-gray-100 font-medium text-xs">{getPropertyValue('tenure.tenure_type')}</span>
+          </div>
+        )}
+        {getPropertyValue('number_of_bedrooms.value') !== 'N/A' && (
+          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
+            <span className="text-gray-400 text-xs">Beds:</span>
+            <span className="text-gray-100 font-medium text-xs">{getPropertyValue('number_of_bedrooms.value', '0')}</span>
+          </div>
+        )}
+        {getPropertyValue('number_of_bathrooms.value') !== 'N/A' && (
+          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
+            <span className="text-gray-400 text-xs">Baths:</span>
+            <span className="text-gray-100 font-medium text-xs">{getPropertyValue('number_of_bathrooms.value', '0')}</span>
+          </div>
+        )}
+        {getPropertyValue('internal_area_square_metres') !== 'N/A' && getPropertyValue('internal_area_square_metres') !== '0' && (
+          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
+            <span className="text-gray-400 text-xs">Area:</span>
+            <span className="text-gray-100 font-medium text-xs">{formatArea(getPropertyValue('internal_area_square_metres', '0'))}</span>
+          </div>
+        )}
+        {getPropertyValue('council_tax.band') !== 'N/A' && (
+          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
+            <span className="text-gray-400 text-xs">Council Tax:</span>
+            <span className="text-gray-100 font-medium text-xs">
+              Band {getPropertyValue('council_tax.band')}
+              {getPropertyValue('council_tax.current_annual_charge') !== 'N/A' && (
+                <span className="text-gray-400 ml-1">(£{parseFloat(getPropertyValue('council_tax.current_annual_charge', '0')).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })})</span>
+              )}
+            </span>
+          </div>
+        )}
+        {getPropertyValue('construction_age_band') !== 'N/A' && (
+          <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
+            <span className="text-gray-400 text-xs">Age:</span>
+            <span className="text-gray-100 font-medium text-xs">{getPropertyValue('construction_age_band')}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function DashboardV1() {
   const { data: session, status } = useSession()
   const params = useParams()
@@ -850,6 +961,7 @@ export default function DashboardV1() {
   const [isLargeScreen, setIsLargeScreen] = useState(false)
   const [copyConfirmation, setCopyConfirmation] = useState<string | null>(null)
   const [showHowItWorksDialog, setShowHowItWorksDialog] = useState(false)
+  const [mapMode, setMapMode] = useState<'map' | 'street'>('map')
   const uprn = params.uprn as string
 
   // Helper functions to safely extract property data
@@ -1300,9 +1412,9 @@ export default function DashboardV1() {
                   }}
                 >
                   <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl p-6 shadow-2xl">
-                    <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Sections</h2>
-                    <nav className="space-y-1">
-                      {sections.map((section) => (
+                    <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">DETAILS</h2>
+                    <nav className="space-y-1 mb-6">
+                      {detailsSections.map((section) => (
                         <button
                           key={section.id}
                           onClick={() => {
@@ -1324,7 +1436,42 @@ export default function DashboardV1() {
                               : 'text-gray-300 hover:text-gray-100 hover:bg-gray-500/10 border-transparent'
                           }`}
                         >
-                          <span className="text-lg">{section.icon}</span>
+                          {(() => {
+                            const IconComponent = section.icon
+                            return <IconComponent className="w-5 h-5" />
+                          })()}
+                          <span className="font-medium text-sm">{section.label}</span>
+                        </button>
+                      ))}
+                    </nav>
+                    <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">TOOLS</h2>
+                    <nav className="space-y-1">
+                      {toolsSections.map((section) => (
+                        <button
+                          key={section.id}
+                          onClick={() => {
+                            setActiveSection(section.id)
+                            updateSectionInUrl(section.id)
+                            if (section.id !== 'property-details') {
+                              setRightPanelOpen(false)
+                              setSelectedSubsection(null)
+                            }
+                            if (section.id !== 'sold-comparables') {
+                              setPanelNavigation('none')
+                              setNavigationSource('main')
+                              setSelectedTransaction(null)
+                            }
+                          }}
+                          className={`w-full flex items-center gap-2 px-2 py-2 rounded-xl text-left transition-all duration-200 border ${
+                            activeSection === section.id
+                              ? 'bg-purple-500/20 text-purple-100 border-purple-400/30'
+                              : 'text-gray-300 hover:text-gray-100 hover:bg-gray-500/10 border-transparent'
+                          }`}
+                        >
+                          {(() => {
+                            const IconComponent = section.icon
+                            return <IconComponent className="w-5 h-5" />
+                          })()}
                           <span className="font-medium text-sm">{section.label}</span>
                         </button>
                       ))}
@@ -1337,12 +1484,25 @@ export default function DashboardV1() {
 
                 {/* Main Content */}
                 <div className="flex-1 min-w-0 w-full" style={{ width: 'calc(100% - 256px - 2rem)' }}>
+                  {/* Property Summary Header */}
+                  <PropertySummary 
+                    propertyData={propertyData}
+                    getPropertyValue={getPropertyValue}
+                    copyToClipboard={copyToClipboard}
+                    formatArea={formatArea}
+                  />
+                  
                   <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl shadow-2xl overflow-hidden w-full min-h-[600px]" style={{ width: '100%', minWidth: '600px' }}>
                 {loading ? (
                   /* Loading Spinner */
                   <div className="p-8 w-full">
                     <div className="flex items-center gap-3 mb-8">
-                      <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                      {(() => {
+                        const section = sections.find(s => s.id === activeSection)
+                        if (!section) return null
+                        const IconComponent = section.icon
+                        return <IconComponent className="w-7 h-7" />
+                      })()}
                       <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                     </div>
                     <div className="space-y-8">
@@ -1380,7 +1540,12 @@ export default function DashboardV1() {
                   /* Error State */
                   <div className="p-8 w-full">
                     <div className="flex items-center gap-3 mb-8">
-                      <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                      {(() => {
+                        const section = sections.find(s => s.id === activeSection)
+                        if (!section) return null
+                        const IconComponent = section.icon
+                        return <IconComponent className="w-7 h-7" />
+                      })()}
                       <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                     </div>
                     <div className="flex flex-col items-center justify-center py-12">
@@ -1399,268 +1564,128 @@ export default function DashboardV1() {
                   /* Section Content */
                   <div className="p-8 w-full">
                     {activeSection === 'property-details' && propertyData ? (
-                      /* Property Details Content */
+                      /* Property Info Content */
                       <div className="w-full min-h-[500px]" style={{ width: '100%' }}>
                         <div className="flex items-center gap-3 mb-8">
-                          <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                          {(() => {
+                            const section = sections.find(s => s.id === activeSection)
+                            if (!section) return null
+                            const IconComponent = section.icon
+                            return <IconComponent className="w-7 h-7" />
+                          })()}
                           <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                         </div>
                 
                 <div className="space-y-8">
-                  {/* Property Overview Section */}
-                  <div className="">
-                    {/* Address Section */}
-                    <div className="mb-4">
-                      <div className="text-left">
-                        <div className="flex items-center gap-3 mb-2">
-                          <p className="text-gray-100 text-2xl font-semibold">
-                            {getPropertyValue('address.street_group_format.address_lines')}
-                          </p>
-                          <button
-                            onClick={() => copyToClipboard(
-                              getPropertyValue('address.street_group_format.address_lines'), 
-                              'Address'
-                            )}
-                            className="p-1 rounded hover:bg-gray-500/20 transition-colors"
-                            title="Copy address"
-                          >
-                            <svg className="w-4 h-4 text-gray-400 hover:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <p className="text-gray-300 text-lg">
-                            {getPropertyValue('address.street_group_format.postcode')}
-                          </p>
-                          <button
-                            onClick={() => copyToClipboard(
-                              getPropertyValue('address.street_group_format.postcode'), 
-                              'Postcode'
-                            )}
-                            className="p-1 rounded hover:bg-gray-500/20 transition-colors"
-                            title="Copy postcode"
-                          >
-                            <svg className="w-4 h-4 text-gray-400 hover:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Property Details Tags */}
-                    <div className="flex flex-wrap gap-4 min-h-[60px] w-full">
-                      {getPropertyValue('property_type.value') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Type:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('property_type.value')}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('construction_age_band') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Age:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('construction_age_band')}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('tenure.tenure_type') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Tenure:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('tenure.tenure_type')}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('number_of_bedrooms.value') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Beds:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('number_of_bedrooms.value', '0')}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('number_of_bathrooms.value') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Baths:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('number_of_bathrooms.value', '0')}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('internal_area_square_metres') !== 'N/A' && getPropertyValue('internal_area_square_metres') !== '0' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Area:</span>
-                          <span className="text-gray-100 font-medium">{formatArea(getPropertyValue('internal_area_square_metres', '0'))}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('council_tax.council_tax_band') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Tax:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('council_tax.council_tax_band', 'N/A')}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('energy_performance.current_energy_rating') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">EPC:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('energy_performance.current_energy_rating', 'N/A')}</span>
-                        </div>
-                      )}
-                      {getPropertyValue('flood_risk.risk_label') !== 'N/A' && (
-                        <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-4 py-2">
-                          <span className="text-gray-400 text-sm">Flood:</span>
-                          <span className="text-gray-100 font-medium">{getPropertyValue('flood_risk.risk_label', 'N/A')}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Maps & Local Area Section */}
+                  {/* Map & Property Info Section */}
                   <div className="mb-12">
-                    {/* Location Title */}
-                    <h2 className="text-lg font-medium text-gray-300 mb-6">Location</h2>
-                    
-                    {/* Maps Section */}
-                    <div className="mb-4 min-h-[280px]">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Google Map */}
-                        <div className="relative w-full h-64 rounded-lg overflow-hidden border border-gray-500/30" style={{ height: '256px' }}>
-                          <iframe
-                            src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(getPropertyValue('address.street_group_format.address_lines') + ', ' + getPropertyValue('address.street_group_format.postcode'))}&zoom=15&maptype=roadmap`}
-                            width="100%"
-                            height="256"
-                            style={{ border: 0, height: '256px' }}
-                            allowFullScreen
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                            title="Property Location Map"
-                          />
-                        </div>
-                        
-                        {/* Interactive Street View */}
-                        <div className="relative w-full h-64 rounded-lg overflow-hidden border border-gray-500/30" style={{ height: '256px' }}>
-                          <iframe
-                            src={getStreetViewEmbedUrl(
-                              parseFloat(getPropertyValue('location.coordinates.latitude', '0')), 
-                              parseFloat(getPropertyValue('location.coordinates.longitude', '0'))
-                            )}
-                            width="100%"
-                            height="256"
-                            style={{ border: 0, height: '256px' }}
-                            allowFullScreen
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                            title="Interactive Street View"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Local Area Details */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 min-h-[80px]">
-                      {getPropertyValue('localities.ward') !== 'N/A' && (
-                        <div className="bg-gray-800/20 rounded-lg p-3 border border-gray-600/20">
-                          <div className="text-center">
-                            <div className="text-sm font-semibold text-gray-100">{getPropertyValue('localities.ward')}</div>
-                            <div className="text-xs text-gray-400">Ward</div>
-                          </div>
-                        </div>
-                      )}
-                      {getPropertyValue('localities.local_authority') !== 'N/A' && (
-                        <div className="bg-gray-800/20 rounded-lg p-3 border border-gray-600/20">
-                          <div className="text-center">
-                            <div className="text-sm font-semibold text-gray-100">{getPropertyValue('localities.local_authority')}</div>
-                            <div className="text-xs text-gray-400">Local Authority</div>
-                          </div>
-                        </div>
-                      )}
-                      {getPropertyValue('localities.county') !== 'N/A' && (
-                        <div className="bg-gray-800/20 rounded-lg p-3 border border-gray-600/20">
-                          <div className="text-center">
-                            <div className="text-sm font-semibold text-gray-100">{getPropertyValue('localities.county')}</div>
-                            <div className="text-xs text-gray-400">County</div>
-                          </div>
-                        </div>
-                      )}
-                      {getPropertyValue('localities.police_force') !== 'N/A' && (
-                        <div className="bg-gray-800/20 rounded-lg p-3 border border-gray-600/20">
-                          <div className="text-center">
-                            <div className="text-sm font-semibold text-gray-100">{getPropertyValue('localities.police_force')}</div>
-                            <div className="text-xs text-gray-400">Police Force</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                
-
-                  {/* Property Details Subsections - Plot, Utilities, Energy */}
-                  <div className="mb-16">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {subsections[activeSection]
-                      .filter(subsection => ['energy', 'plot', 'utilities'].includes(subsection.id))
-                      .sort((a, b) => {
-                        // First sort by predefined order: energy, plot, utilities
-                        const order = ['energy', 'plot', 'utilities']
-                        const aIndex = order.indexOf(a.id)
-                        const bIndex = order.indexOf(b.id)
-                        if (aIndex !== bIndex) return aIndex - bIndex
-                        
-                        // Then sort by data availability
-                        const aHasData = hasSubsectionData(a.id)
-                        const bHasData = hasSubsectionData(b.id)
-                        if (aHasData && !bHasData) return -1
-                        if (!aHasData && bHasData) return 1
-                        return 0
-                      })
-                      .map((subsection) => {
-                        const hasData = hasSubsectionData(subsection.id)
-                        return (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Left Side: Toggle + Map */}
+                      <div className="flex flex-col">
+                        {/* Two-segment toggle */}
+                        <div className="flex mb-3">
                           <button
-                            key={subsection.id}
-                            onClick={() => handleSubsectionClick(subsection.id)}
-                            disabled={!hasData}
-                            title={!hasData ? 'Not available' : undefined}
-                            className={`backdrop-blur-xl border rounded-xl p-4 text-left transition-all duration-200 group shadow-lg ${
-                              hasData 
-                                ? 'bg-black/20 border-gray-500/30 hover:bg-gray-500/20 cursor-pointer' 
-                                : 'bg-black/20 border-gray-500/30 opacity-50 cursor-not-allowed'
+                            onClick={() => setMapMode('map')}
+                            className={`px-4 py-2 text-sm font-medium transition-all duration-200 rounded-l-lg border border-gray-500/30 ${
+                              mapMode === 'map'
+                                ? 'bg-purple-500/20 text-purple-100 border-purple-400/30'
+                                : 'bg-black/20 text-gray-300 hover:bg-gray-500/20'
                             }`}
                           >
-                            <div className="flex items-center gap-3 mb-2">
-                              <span className="text-xl">{subsection.icon}</span>
-                              <h3 className={`font-semibold transition-colors ${
-                                hasData 
-                                  ? 'text-gray-100 group-hover:text-gray-50' 
-                                  : 'text-gray-500'
-                              }`}>
-                                {subsection.label}
-                              </h3>
-                            </div>
-                            <p className={`text-sm ${
-                              hasData 
-                                ? 'text-gray-400' 
-                                : 'text-gray-600'
-                            }`}>
-                              {subsection.description}
-                            </p>
+                            Map
                           </button>
-                        )
-                      })}
+                          <button
+                            onClick={() => setMapMode('street')}
+                            className={`px-4 py-2 text-sm font-medium transition-all duration-200 rounded-r-lg border border-l-0 border-gray-500/30 ${
+                              mapMode === 'street'
+                                ? 'bg-purple-500/20 text-purple-100 border-purple-400/30'
+                                : 'bg-black/20 text-gray-300 hover:bg-gray-500/20'
+                            }`}
+                          >
+                            Street View
+                          </button>
+                        </div>
+                        
+                        {/* Square Map Container */}
+                        <div className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-500/30">
+                          <iframe
+                            src={mapMode === 'map' 
+                              ? `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(getPropertyValue('address.street_group_format.address_lines') + ', ' + getPropertyValue('address.street_group_format.postcode'))}&zoom=15&maptype=roadmap`
+                              : getStreetViewEmbedUrl(
+                                  parseFloat(getPropertyValue('location.coordinates.latitude', '0')), 
+                                  parseFloat(getPropertyValue('location.coordinates.longitude', '0'))
+                                )
+                            }
+                            width="100%"
+                            height="100%"
+                            style={{ border: 0 }}
+                            allowFullScreen
+                            loading="lazy"
+                            referrerPolicy="no-referrer-when-downgrade"
+                            title={mapMode === 'map' ? 'Property Location Map' : 'Interactive Street View'}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Right Side: Vertical Stack of Subsections */}
+                      <div className="flex flex-col">
+                        {/* Invisible spacer to account for toggle button height */}
+                        <div className="h-[2.5rem] mb-3 opacity-0 pointer-events-none flex-shrink-0"></div>
+                        {/* Panels matching map height */}
+                        <div className="flex-1 flex flex-col gap-4 min-h-0">
+                          {subsections[activeSection]
+                            .filter(subsection => ['energy', 'plot', 'utilities', 'ownership', 'construction'].includes(subsection.id))
+                            .sort((a, b) => {
+                              // First sort by predefined order: energy, ownership, construction, plot, utilities
+                              const order = ['energy', 'ownership', 'construction', 'plot', 'utilities']
+                              const aIndex = order.indexOf(a.id)
+                              const bIndex = order.indexOf(b.id)
+                              if (aIndex !== bIndex) return aIndex - bIndex
+                              
+                              // Then sort by data availability
+                              const aHasData = hasSubsectionData(a.id)
+                              const bHasData = hasSubsectionData(b.id)
+                              if (aHasData && !bHasData) return -1
+                              if (!aHasData && bHasData) return 1
+                              return 0
+                            })
+                            .map((subsection) => {
+                              const hasData = hasSubsectionData(subsection.id)
+                              return (
+                                <button
+                                  key={subsection.id}
+                                  onClick={() => handleSubsectionClick(subsection.id)}
+                                  disabled={!hasData}
+                                  title={!hasData ? 'Not available' : undefined}
+                                  className={`flex-1 min-h-0 bg-black/20 border border-gray-500/30 rounded-lg p-3 text-left transition-all duration-200 group shadow-lg overflow-hidden ${
+                                    hasData 
+                                      ? 'hover:bg-gray-500/20 cursor-pointer' 
+                                      : 'opacity-50 cursor-not-allowed'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-lg">{subsection.icon}</span>
+                                    <h3 className={`text-sm font-semibold transition-colors ${
+                                      hasData 
+                                        ? 'text-gray-100 group-hover:text-gray-50' 
+                                        : 'text-gray-500'
+                                    }`}>
+                                      {subsection.label}
+                                    </h3>
+                                  </div>
+                                  <p className={`text-xs ${
+                                    hasData 
+                                      ? 'text-gray-400' 
+                                      : 'text-gray-600'
+                                  }`}>
+                                    {subsection.description}
+                                  </p>
+                                </button>
+                              )
+                            })}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Ownership & Construction Details - Side by Side */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
-                    {/* Ownership & Occupancy Section */}
-                    {hasSubsectionData('ownership') && (
-                      <div>
-                        <h2 className="text-lg font-medium text-gray-300 mb-4">Ownership & Occupancy</h2>
-                        <OwnershipDataDisplay propertyData={propertyData} getPropertyValue={getPropertyValue} />
-                      </div>
-                    )}
-
-                    {/* Construction Details Section */}
-                    {hasSubsectionData('construction') && (
-                      <div>
-                        <h2 className="text-lg font-medium text-gray-300 mb-4">Construction Details</h2>
-                        <ConstructionDataDisplay propertyData={propertyData} getPropertyValue={getPropertyValue} />
-                      </div>
-                    )}
                   </div>
                         </div>
                       </div>
@@ -1672,7 +1697,12 @@ export default function DashboardV1() {
                           <div className="w-full">
                             <div className="flex items-center justify-between mb-6">
                               <div className="flex items-center gap-3">
-                                <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                                {(() => {
+                                  const section = sections.find(s => s.id === activeSection)
+                                  if (!section) return null
+                                  const IconComponent = section.icon
+                                  return <IconComponent className="w-7 h-7" />
+                                })()}
                                 <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                               </div>
                               <button
@@ -1711,7 +1741,12 @@ export default function DashboardV1() {
                           /* Sold Comparables Section */
                           <div className="w-full">
                             <div className="flex items-center gap-3 mb-6">
-                              <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                              {(() => {
+                                const section = sections.find(s => s.id === activeSection)
+                                if (!section) return null
+                                const IconComponent = section.icon
+                                return <IconComponent className="w-7 h-7" />
+                              })()}
                               <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                               <button
                                 onClick={() => setShowHowItWorksDialog(true)}
@@ -1752,7 +1787,12 @@ export default function DashboardV1() {
                           /* Market Analysis Section */
                           <div className="w-full">
                             <div className="flex items-center gap-3 mb-6">
-                              <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                              {(() => {
+                                const section = sections.find(s => s.id === activeSection)
+                                if (!section) return null
+                                const IconComponent = section.icon
+                                return <IconComponent className="w-7 h-7" />
+                              })()}
                               <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                             </div>
                             <MarketAnalysis marketStatistics={getPropertyValue('market_statistics')} />
@@ -1761,7 +1801,12 @@ export default function DashboardV1() {
                           /* Nearby Listings Section */
                           <div className="w-full">
                             <div className="flex items-center gap-3 mb-6">
-                              <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                              {(() => {
+                                const section = sections.find(s => s.id === activeSection)
+                                if (!section) return null
+                                const IconComponent = section.icon
+                                return <IconComponent className="w-7 h-7" />
+                              })()}
                               <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                             </div>
                             {propertyData ? (
@@ -1781,7 +1826,12 @@ export default function DashboardV1() {
                           /* AI Refurbishment Estimator Section */
                           <div className="w-full">
                             <div className="flex items-center gap-3 mb-6">
-                              <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                              {(() => {
+                                const section = sections.find(s => s.id === activeSection)
+                                if (!section) return null
+                                const IconComponent = section.icon
+                                return <IconComponent className="w-7 h-7" />
+                              })()}
                               <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                             </div>
                             <RefurbishmentEstimator 
@@ -1796,7 +1846,12 @@ export default function DashboardV1() {
                           /* Other Sections - Empty Layout */
                           <div className="w-full">
                             <div className="flex items-center gap-3 mb-6">
-                              <span className="text-2xl">{sections.find(s => s.id === activeSection)?.icon}</span>
+                              {(() => {
+                                const section = sections.find(s => s.id === activeSection)
+                                if (!section) return null
+                                const IconComponent = section.icon
+                                return <IconComponent className="w-7 h-7" />
+                              })()}
                               <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                             </div>
                             <div className="text-center py-12">
@@ -1817,18 +1872,18 @@ export default function DashboardV1() {
           </div>
         </main>
         
-        {/* Generic Right Panel for Property Details */}
+        {/* Generic Right Panel for Property Info */}
         <GenericPanel
             isOpen={activeSection === 'property-details' && rightPanelOpen}
             onClose={() => {
               setRightPanelOpen(false)
               setSelectedSubsection(null)
             }}
-            title={subsections[activeSection as keyof typeof subsections]?.find((s: any) => s.id === selectedSubsection)?.label || 'Property Details'}
+            title={subsections[activeSection as keyof typeof subsections]?.find((s: any) => s.id === selectedSubsection)?.label || 'Property Info'}
             isLargeScreen={isLargeScreen}
           >
             <div className="space-y-6">
-              {/* Property Details Subsections */}
+              {/* Property Info Subsections */}
               {activeSection === 'property-details' && selectedSubsection && propertyData && (
                 renderSubsectionContent(selectedSubsection)
               )}
@@ -1877,7 +1932,7 @@ export default function DashboardV1() {
                         />
                       </div>
                       
-                      {/* Property Details */}
+                      {/* Property Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex-1">
@@ -2005,4 +2060,5 @@ export default function DashboardV1() {
     </div>
   )
 }
+
 

@@ -605,7 +605,7 @@ function FilterControls({
       </div>
       
       <div className="text-xs text-gray-400 mb-4">
-        Showing {filteredCount} of {totalCount} properties
+        Showing {filteredCount} of {totalCount} transactions
         {totalCount > filteredCount && (
           <span className="ml-1 text-orange-400">
             ({totalCount - filteredCount} filtered out)
@@ -728,7 +728,6 @@ function ValuationDisplay({
   onStrategyChange, 
   selectedCount,
   isLoading = false,
-  onOpenSelectedPanel,
   subjectPropertyData,
   hasLoadedInitialData
 }: {
@@ -737,7 +736,6 @@ function ValuationDisplay({
   onStrategyChange: (strategy: 'average' | 'price_per_sqm') => void
   selectedCount: number
   isLoading?: boolean
-  onOpenSelectedPanel?: () => void
   subjectPropertyData?: ComparablesAnalysisProps['subjectPropertyData']
   hasLoadedInitialData: boolean
 }) {
@@ -752,48 +750,9 @@ function ValuationDisplay({
     }
   }, [selectedCount])
   return (
-    <div className="flex gap-6 mb-6">
-      {/* Left half - Property Info Box */}
-      <div className="flex-1 bg-black/20 border border-gray-500/30 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-gray-100 mb-4">Your Property</h3>
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-4">
-            {subjectPropertyData?.address && (
-              <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-2">
-                <span className="text-gray-400 text-xs">Address:</span>
-                <span className="text-gray-100 font-medium text-sm">{subjectPropertyData.address}</span>
-              </div>
-            )}
-            {subjectPropertyData?.propertyType && (
-              <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-2">
-                <span className="text-gray-400 text-xs">Type:</span>
-                <span className="text-gray-100 font-medium text-sm">{subjectPropertyData.propertyType}</span>
-              </div>
-            )}
-            {subjectPropertyData?.bedrooms !== undefined && (
-              <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-2">
-                <span className="text-gray-400 text-xs">Beds:</span>
-                <span className="text-gray-100 font-medium text-sm">{subjectPropertyData.bedrooms}</span>
-              </div>
-            )}
-            {subjectPropertyData?.bathrooms !== undefined && (
-              <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-2">
-                <span className="text-gray-400 text-xs">Baths:</span>
-                <span className="text-gray-100 font-medium text-sm">{subjectPropertyData.bathrooms}</span>
-              </div>
-            )}
-            {subjectPropertyData?.internalArea && (
-              <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-2">
-                <span className="text-gray-400 text-xs">Area:</span>
-                <span className="text-gray-100 font-medium text-sm">{subjectPropertyData.internalArea}m²</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Right half - Valuation Box */}
-      <div className="flex-1 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-6 flex flex-col">
+    <div className="mb-6">
+      {/* Valuation Box */}
+      <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-6 flex flex-col min-h-[200px]">
         <div className="mb-4">
           <div className="bg-black/20 border border-gray-600 rounded-md p-0.5 flex w-fit">
             <button
@@ -846,41 +805,6 @@ function ValuationDisplay({
             )}
           </div>
 
-          {/* Selected Comparables Button - Aligned to bottom */}
-          {!hasLoadedInitialData ? (
-            // Button Skeleton
-            <div className="mt-auto pt-4">
-              <div className="bg-gray-700/30 rounded-lg px-4 py-2 animate-pulse">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 bg-gray-600/30 rounded w-32"></div>
-                  <div className="w-4 h-4 bg-gray-600/30 rounded"></div>
-                </div>
-              </div>
-            </div>
-          ) : selectedCount > 0 ? (
-            <div className="mt-auto pt-4">
-              <button
-                onClick={() => {
-                  if (onOpenSelectedPanel) {
-                    onOpenSelectedPanel()
-                  }
-                }}
-                className={`bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg shadow-lg hover:shadow-purple-500/25 transition-all duration-200 text-sm font-medium ${
-                  isAnimating ? 'animate-pulse' : ''
-                }`}
-                style={{
-                  animation: isAnimating ? 'buttonPulse 0.6s ease-in-out' : 'none'
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <span>View {selectedCount} selected comparables</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </button>
-            </div>
-          ) : null}
         </div>
       </div>
     </div>
@@ -1232,7 +1156,68 @@ export default function ComparablesAnalysis({
   const handleStrategyChange = useCallback((strategy: 'average' | 'price_per_sqm') => {
     setValuationStrategy(strategy)
     setHasUserInteracted(true)
-  }, [])
+    // Force immediate save when strategy changes
+    // Use setTimeout to ensure state updates are processed first
+    setTimeout(async () => {
+      if (!hasLoadedInitialData) return
+      
+      try {
+        // Calculate valuation with the new strategy
+        let currentValuation: number | null = null
+        
+        if (selectedComparableIds.length > 0) {
+          const selectedProperties = groupedProperties.filter(p => 
+            selectedComparableIds.includes(p.street_group_property_id)
+          )
+          
+          if (selectedProperties.length > 0) {
+            if (strategy === 'average') {
+              const totalPrice = selectedProperties.reduce((sum, p) => sum + (p.transactions[0]?.price || 0), 0)
+              currentValuation = totalPrice / selectedProperties.length
+            } else {
+              // Price per sqm strategy
+              if (subjectPropertySqm > 0) {
+                const validProperties = selectedProperties.filter(p => {
+                  const latestTransaction = p.transactions[0]
+                  return latestTransaction?.price_per_square_metre && latestTransaction.price_per_square_metre > 0
+                })
+                if (validProperties.length > 0) {
+                  const totalPricePerSqm = validProperties.reduce((sum, p) => 
+                    sum + (p.transactions[0]?.price_per_square_metre || 0), 0
+                  )
+                  const avgPricePerSqm = totalPricePerSqm / validProperties.length
+                  currentValuation = avgPricePerSqm * subjectPropertySqm
+                }
+              }
+            }
+          }
+        }
+        
+        const response = await fetch('/api/db/comparables', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            uprn,
+            selected_comparable_ids: selectedComparableIds,
+            valuation_strategy: strategy,
+            calculated_valuation: currentValuation
+          })
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          setSavedData(data)
+          console.log('Valuation strategy saved:', strategy)
+        } else {
+          console.error('Failed to save valuation strategy:', response.status, response.statusText)
+        }
+      } catch (error) {
+        console.error('Error saving valuation strategy:', error)
+      }
+    }, 200) // Small delay to ensure state updates are processed
+  }, [hasLoadedInitialData, selectedComparableIds, groupedProperties, subjectPropertySqm, uprn])
 
   const handleViewDetails = useCallback((property: PropertyWithTransactions) => {
     // Convert property to transaction format for the details panel
@@ -1285,37 +1270,58 @@ export default function ComparablesAnalysis({
   if (!nearbyTransactions || nearbyTransactions.length === 0) {
     return (
       <>
-        {/* Valuation Hero Section */}
-        <ValuationDisplay
-          valuation={null}
-          strategy={valuationStrategy}
-          onStrategyChange={handleStrategyChange}
-          selectedCount={0}
-          isLoading={true}
-          onOpenSelectedPanel={() => {
-            if (onSelectedPanelOpen) {
-              onSelectedPanelOpen(true)
-            }
-          }}
-          subjectPropertyData={subjectPropertyData}
-          hasLoadedInitialData={hasLoadedInitialData}
-        />
-
         {/* Two-Column Layout */}
         <div className="flex gap-6">
-          {/* Left Sidebar - Filters */}
+          {/* Left Sidebar - Valuation + Filters */}
           <div className="w-72 flex-shrink-0">
-            <FilterControls
-              filters={filters}
-              onFiltersChange={setFilters}
-              propertyTypes={propertyTypes}
-              totalCount={0}
-              filteredCount={0}
+            {/* Valuation Box (same width as filters) */}
+            <ValuationDisplay
+              valuation={null}
+              strategy={valuationStrategy}
+              onStrategyChange={handleStrategyChange}
+              selectedCount={0}
+              isLoading={true}
+              subjectPropertyData={subjectPropertyData}
+              hasLoadedInitialData={hasLoadedInitialData}
             />
+
+
+            {/* Filters */}
+            <div className="mt-4">
+              <FilterControls
+                filters={filters}
+                onFiltersChange={setFilters}
+                propertyTypes={propertyTypes}
+                totalCount={0}
+                filteredCount={0}
+              />
+            </div>
           </div>
 
-          {/* Right Content - Loading Skeletons */}
-          <div className="flex-1 min-w-0">
+          {/* Right Content - Selected Comparables and Loading Skeletons */}
+          <div className="flex-1 min-w-0 space-y-6">
+            {/* Selected Comparables Section */}
+            {hasLoadedInitialData && selectedProperties.length > 0 && (
+              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 min-h-[200px]">
+                <h3 className="text-lg font-semibold text-gray-100 mb-3">
+                  Selected Comparables ({selectedProperties.length})
+                </h3>
+                <div className="space-y-3">
+                  {selectedProperties.map(property => (
+                    <TransactionCard
+                      key={property.street_group_property_id}
+                      property={property}
+                      isSelected={true}
+                      onSelect={() => handleSelectComparable(property.street_group_property_id)}
+                      onDeselect={() => handleDeselectComparable(property.street_group_property_id)}
+                      onViewDetails={() => handleViewDetails(property)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Loading Skeletons */}
             <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4">
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, index) => (
@@ -1333,37 +1339,64 @@ export default function ComparablesAnalysis({
   if (groupedProperties.length === 0) {
     return (
       <>
-        {/* Valuation Hero Section */}
-        <ValuationDisplay
-          valuation={null}
-          strategy={valuationStrategy}
-          onStrategyChange={handleStrategyChange}
-          selectedCount={0}
-          isLoading={false}
-          onOpenSelectedPanel={() => {
-            if (onSelectedPanelOpen) {
-              onSelectedPanelOpen(true)
-            }
-          }}
-          subjectPropertyData={subjectPropertyData}
-          hasLoadedInitialData={hasLoadedInitialData}
-        />
-
         {/* Two-Column Layout */}
         <div className="flex gap-6">
-          {/* Left Sidebar - Filters */}
+          {/* Left Sidebar - Valuation + Filters */}
           <div className="w-72 flex-shrink-0">
-            <FilterControls
-              filters={filters}
-              onFiltersChange={setFilters}
-              propertyTypes={propertyTypes}
-              totalCount={0}
-              filteredCount={0}
+            {/* Valuation Box (same width as filters) */}
+            <ValuationDisplay
+              valuation={null}
+              strategy={valuationStrategy}
+              onStrategyChange={handleStrategyChange}
+              selectedCount={0}
+              isLoading={false}
+              subjectPropertyData={subjectPropertyData}
+              hasLoadedInitialData={hasLoadedInitialData}
             />
+
+
+            {/* Filters */}
+            <div className="mt-4">
+              <FilterControls
+                filters={filters}
+                onFiltersChange={setFilters}
+                propertyTypes={propertyTypes}
+                totalCount={0}
+                filteredCount={0}
+              />
+            </div>
           </div>
 
-          {/* Right Content - Empty State */}
-          <div className="flex-1 min-w-0">
+          {/* Right Content - Selected Comparables and Empty State */}
+          <div className="flex-1 min-w-0 space-y-6">
+            {/* Selected Comparables Section */}
+            {hasLoadedInitialData && (
+              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 min-h-[200px]">
+                <h3 className="text-lg font-semibold text-gray-100 mb-3">
+                  Selected Comparables ({selectedProperties.length})
+                </h3>
+                {selectedProperties.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    Selected comparables from the list below will show here
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedProperties.map(property => (
+                      <TransactionCard
+                        key={property.street_group_property_id}
+                        property={property}
+                        isSelected={true}
+                        onSelect={() => handleSelectComparable(property.street_group_property_id)}
+                        onDeselect={() => handleDeselectComparable(property.street_group_property_id)}
+                        onViewDetails={() => handleViewDetails(property)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Empty State */}
             <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-6">
               <div className="text-center py-12">
                 <div className="text-4xl mb-4 opacity-50">🏘️</div>
@@ -1379,26 +1412,24 @@ export default function ComparablesAnalysis({
 
   return (
     <>
-        {/* Valuation Hero Section */}
-        <ValuationDisplay
-          valuation={calculatedValuation}
-          strategy={valuationStrategy}
-          onStrategyChange={handleStrategyChange}
-          selectedCount={selectedComparableIds.length}
-          isLoading={isLoadingValuation}
-          onOpenSelectedPanel={() => {
-            if (onSelectedPanelOpen) {
-              onSelectedPanelOpen(true)
-            }
-          }}
-          subjectPropertyData={subjectPropertyData}
-          hasLoadedInitialData={hasLoadedInitialData}
-        />
-
       {/* Two-Column Layout */}
       <div className="flex gap-6">
-        {/* Left Sidebar - Filters */}
+        {/* Left Sidebar - Valuation + Filters */}
         <div className="w-72 flex-shrink-0">
+          {/* Valuation Box (same width as filters) */}
+          <ValuationDisplay
+            valuation={calculatedValuation}
+            strategy={valuationStrategy}
+            onStrategyChange={handleStrategyChange}
+            selectedCount={selectedComparableIds.length}
+            isLoading={isLoadingValuation}
+            subjectPropertyData={subjectPropertyData}
+            hasLoadedInitialData={hasLoadedInitialData}
+          />
+
+
+          {/* Filters */}
+          <div className="mt-4">
           {!hasLoadedInitialData ? (
             // Filters Skeleton
             <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4">
@@ -1431,6 +1462,7 @@ export default function ComparablesAnalysis({
               filteredCount={filteredProperties.length}
             />
           )}
+          </div>
           
           {/* Other Sources Section */}
           <div className="mt-6">
@@ -1472,8 +1504,36 @@ export default function ComparablesAnalysis({
           </div>
         </div>
 
-        {/* Right Content - Transaction List */}
-        <div className="flex-1 min-w-0">
+        {/* Right Content - Selected Comparables and Transaction List */}
+        <div className="flex-1 min-w-0 space-y-6">
+          {/* Selected Comparables Section */}
+            {hasLoadedInitialData && (
+              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 min-h-[200px]">
+              <h3 className="text-lg font-semibold text-gray-100 mb-3">
+                Selected Comparables ({selectedProperties.length})
+              </h3>
+              {selectedProperties.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  Selected comparables from the list below will show here
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {selectedProperties.map(property => (
+                    <TransactionCard
+                      key={property.street_group_property_id}
+                      property={property}
+                      isSelected={true}
+                      onSelect={() => handleSelectComparable(property.street_group_property_id)}
+                      onDeselect={() => handleDeselectComparable(property.street_group_property_id)}
+                      onViewDetails={() => handleViewDetails(property)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Nearby Transactions Section */}
           <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -1485,7 +1545,7 @@ export default function ComparablesAnalysis({
                 ) : (
                   <>
                     <h3 className="text-lg font-semibold text-gray-100">
-                      Nearby Transactions ({availableProperties.length})
+                      Available nearby transactions ({availableProperties.length})
                     </h3>
                   </>
                 )}
