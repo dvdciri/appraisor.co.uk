@@ -691,7 +691,7 @@ function MapView({
   const [markers, setMarkers] = useState<any[]>([])
   const [radiusCircle, setRadiusCircle] = useState<any>(null)
   const [selectedMarker, setSelectedMarker] = useState<any>(null)
-  const [infoWindow, setInfoWindow] = useState<any>(null)
+  const infoWindowRef = useRef<any>(null)
 
   // Initialize map
   useEffect(() => {
@@ -820,7 +820,6 @@ function MapView({
     }
   }, [listings, map])
 
-
   // Update markers and radius circle when listings change
   useEffect(() => {
     if (!map || !listings.length) return
@@ -835,11 +834,6 @@ function MapView({
     
     // Clear selected marker
     setSelectedMarker(null)
-    
-    // Close any existing info window
-    if (infoWindow) {
-      infoWindow.close()
-    }
 
     const newMarkers = listings
       .filter(listing => listing.location?.coordinates?.latitude && listing.location?.coordinates?.longitude)
@@ -870,8 +864,23 @@ function MapView({
         ;(marker as any).listing = listing
 
         marker.addListener('click', () => {
-          console.log('DEBUG: Marker clicked for listing:', listing.listing_id)
-          
+          console.log('DEBUG: Marker clicked for listing:', listing.listing_id);
+
+          if (selectedMarker === marker) {
+              console.log('DEBUG: selectedMarker:', selectedMarker)
+              if (infoWindowRef?.current) {
+
+                  infoWindowRef.current.close();
+
+              }
+          }
+
+          if (infoWindowRef?.current) {
+
+              infoWindowRef.current.close();
+
+          }
+
           // Reset all markers to original color first
           newMarkers.forEach(m => {
             const markerPrice = (m as any).price
@@ -889,21 +898,7 @@ function MapView({
               anchor: new (window as any).google.maps.Point(40, 32)
             })
           })
-          
-          // Close any existing info window
-          if (infoWindow) {
-            infoWindow.close()
-          }
-          
-          // Also try to close any InfoWindow that might be in the DOM
-          const existingInfoWindows = document.querySelectorAll('.gm-style-iw')
-          existingInfoWindows.forEach((iw: Element) => {
-            const closeButton = iw.querySelector('.gm-style-iw-tc + .gm-style-iw-c button')
-            if (closeButton) {
-              (closeButton as HTMLElement).click()
-            }
-          })
-          
+
           // Highlight the clicked marker
           marker.setIcon({
             url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
@@ -969,8 +964,10 @@ function MapView({
             })
             
             console.log('DEBUG: InfoWindow created, opening...')
-            newInfoWindow.open(map, marker)
-            console.log('DEBUG: InfoWindow opened')
+              newInfoWindow.open(map, marker);
+              setSelectedMarker(marker);
+              onPropertySelect(listing)
+              console.log('DEBUG: InfoWindow opened')
             
             // Check if it's visible after a short delay
             setTimeout(() => {
@@ -982,8 +979,7 @@ function MapView({
               }
             }, 100)
             
-            // Don't store in state to avoid interference
-            // setInfoWindow(newInfoWindow)
+            infoWindowRef.current = newInfoWindow;
           } catch (error) {
             console.error('Error creating InfoWindow:', error)
           }
@@ -1066,11 +1062,11 @@ function MapView({
 
   // Close info window when selectedProperty changes
   useEffect(() => {
-    if (!selectedProperty && infoWindow) {
-      infoWindow.close()
-      setInfoWindow(null)
+    if (!selectedProperty && infoWindowRef?.current) {
+        infoWindowRef.current.close()
+        infoWindowRef.current = null
     }
-  }, [selectedProperty, infoWindow])
+  }, [selectedProperty, infoWindowRef])
 
   return (
     <div className="relative">
