@@ -594,9 +594,16 @@ function FilterControls({
   }
 
   return (
-    <div className="bg-black/20 border border-gray-500/30 rounded-xl p-4 sticky top-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-gray-200">Filters</h3>
+    <div className="bg-black/20 border border-gray-500/30 rounded-lg p-3">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-xs text-gray-400">
+          Showing {filteredCount} of {totalCount} transactions
+          {totalCount > filteredCount && (
+            <span className="ml-1 text-orange-400">
+              ({totalCount - filteredCount} filtered out)
+            </span>
+          )}
+        </div>
         <button
           onClick={() => onFiltersChange({
             bedrooms: 'Any',
@@ -611,30 +618,21 @@ function FilterControls({
         </button>
       </div>
       
-      <div className="text-xs text-gray-400 mb-4">
-        Showing {filteredCount} of {totalCount} transactions
-        {totalCount > filteredCount && (
-          <span className="ml-1 text-orange-400">
-            ({totalCount - filteredCount} filtered out)
-          </span>
-        )}
-      </div>
-      
-      <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div>
-          <label className="block text-sm text-gray-400 mb-2">Distance</label>
+          <label className="block text-xs text-gray-400 mb-1.5">Distance</label>
           <div className="relative">
             <select
               value={filters.distance}
               onChange={(e) => updateFilter('distance', e.target.value)}
-              className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
+              className="w-full bg-black/40 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
             >
               {DISTANCE_OPTIONS.map(option => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
-            <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="absolute top-1/2 right-2 transform -translate-y-1/2 pointer-events-none">
+              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
@@ -642,19 +640,19 @@ function FilterControls({
         </div>
         
         <div>
-          <label className="block text-sm text-gray-400 mb-2">Bedrooms</label>
+          <label className="block text-xs text-gray-400 mb-1.5">Bedrooms</label>
           <div className="relative">
             <select
               value={filters.bedrooms}
               onChange={(e) => updateFilter('bedrooms', e.target.value)}
-              className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
+              className="w-full bg-black/40 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
             >
               {BEDROOM_OPTIONS.map(option => (
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
-            <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="absolute top-1/2 right-2 transform -translate-y-1/2 pointer-events-none">
+              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
@@ -662,19 +660,19 @@ function FilterControls({
         </div>
         
         <div>
-          <label className="block text-sm text-gray-400 mb-2">Bathrooms</label>
+          <label className="block text-xs text-gray-400 mb-1.5">Bathrooms</label>
           <div className="relative">
             <select
               value={filters.bathrooms}
               onChange={(e) => updateFilter('bathrooms', e.target.value)}
-              className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
+              className="w-full bg-black/40 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
             >
               {BATHROOM_OPTIONS.map(option => (
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
-            <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="absolute top-1/2 right-2 transform -translate-y-1/2 pointer-events-none">
+              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
@@ -682,20 +680,20 @@ function FilterControls({
         </div>
         
         <div>
-          <label className="block text-sm text-gray-400 mb-2">Property Type</label>
+          <label className="block text-xs text-gray-400 mb-1.5">Property Type</label>
           <div className="relative">
             <select
               value={filters.propertyType}
               onChange={(e) => updateFilter('propertyType', e.target.value)}
-              className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
+              className="w-full bg-black/40 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
             >
               <option value="Any">Any</option>
               {propertyTypes.map(type => (
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>
-            <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="absolute top-1/2 right-2 transform -translate-y-1/2 pointer-events-none">
+              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
@@ -703,19 +701,19 @@ function FilterControls({
         </div>
         
         <div>
-          <label className="block text-sm text-gray-400 mb-2">Transaction Date</label>
+          <label className="block text-xs text-gray-400 mb-1.5">Transaction Date</label>
           <div className="relative">
             <select
               value={filters.transactionDate}
               onChange={(e) => updateFilter('transactionDate', e.target.value)}
-              className="w-full bg-black/40 border border-gray-600 rounded-lg px-4 py-2 pr-12 text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
+              className="w-full bg-black/40 border border-gray-600 rounded-md px-3 py-1.5 pr-8 text-xs text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
             >
               {DATE_OPTIONS.map(option => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
-            <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="absolute top-1/2 right-2 transform -translate-y-1/2 pointer-events-none">
+              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
@@ -788,7 +786,7 @@ function ValuationDisplay({
         <div className="flex-1 flex flex-col">
           {/* Valuation */}
           <div className="flex-1">
-            {isLoading ? (
+            {!hasLoadedInitialData ? (
               <>
                 <div className="h-12 bg-gray-700/30 rounded mb-2 animate-pulse w-48"></div>
                 <div className="h-4 bg-gray-700/30 rounded w-64 animate-pulse"></div>
@@ -981,16 +979,7 @@ export default function ComparablesAnalysis({
     }
   }, [selectedComparableIds, selectedTransactionsForParent, onSelectedTransactionsChange])
 
-  // Show loading when valuation strategy or selected comparables change
-  useEffect(() => {
-    if (hasLoadedInitialData && selectedComparableIds.length > 0) {
-      setIsLoadingValuation(true)
-      const timer = setTimeout(() => {
-        setIsLoadingValuation(false)
-      }, 500) // Short delay to show loading state
-      return () => clearTimeout(timer)
-    }
-  }, [valuationStrategy, selectedComparableIds, hasLoadedInitialData])
+  // Note: we no longer toggle loading for interactive changes; valuation updates instantly
 
   // Filter and sort properties
   const filteredProperties = useMemo(() => {
@@ -1283,64 +1272,46 @@ export default function ComparablesAnalysis({
   if (!nearbyTransactions || nearbyTransactions.length === 0) {
     return (
       <>
-        {/* Two-Column Layout */}
-        <div className="flex gap-6">
-          {/* Left Sidebar - Valuation + Filters */}
-          <div className="w-72 flex-shrink-0">
-            {/* Valuation Box (same width as filters) */}
-            <ValuationDisplay
-              valuation={null}
-              strategy={valuationStrategy}
-              onStrategyChange={handleStrategyChange}
-              selectedCount={0}
-              isLoading={true}
-              subjectPropertyData={subjectPropertyData}
-              hasLoadedInitialData={hasLoadedInitialData}
-            />
+        {/* Full Width Layout */}
+        <div className="space-y-6">
+          {/* Valuation Display */}
+          <ValuationDisplay
+            valuation={null}
+            strategy={valuationStrategy}
+            onStrategyChange={handleStrategyChange}
+            selectedCount={0}
+            isLoading={true}
+            subjectPropertyData={subjectPropertyData}
+            hasLoadedInitialData={hasLoadedInitialData}
+          />
 
-
-            {/* Filters */}
-            <div className="mt-4">
-              <FilterControls
-                filters={filters}
-                onFiltersChange={setFilters}
-                propertyTypes={propertyTypes}
-                totalCount={0}
-                filteredCount={0}
-              />
-            </div>
-          </div>
-
-          {/* Right Content - Selected Comparables and Loading Skeletons */}
-          <div className="flex-1 min-w-0 space-y-6">
-            {/* Selected Comparables Section */}
-            {hasLoadedInitialData && selectedProperties.length > 0 && (
-              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 min-h-[200px]">
-                <h3 className="text-lg font-semibold text-gray-100 mb-3">
-                  Selected Comparables ({selectedProperties.length})
-                </h3>
-                <div className="space-y-3">
-                  {selectedProperties.map(property => (
-                    <TransactionCard
-                      key={property.street_group_property_id}
-                      property={property}
-                      isSelected={true}
-                      onSelect={() => handleSelectComparable(property.street_group_property_id)}
-                      onDeselect={() => handleDeselectComparable(property.street_group_property_id)}
-                      onViewDetails={() => handleViewDetails(property)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Loading Skeletons */}
-            <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4">
+          {/* Selected Comparables Section */}
+          {hasLoadedInitialData && selectedProperties.length > 0 && (
+            <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 min-h-[200px]">
+              <h3 className="text-lg font-semibold text-gray-100 mb-3">
+                Selected Comparables ({selectedProperties.length})
+              </h3>
               <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <TransactionCardSkeleton key={index} />
+                {selectedProperties.map(property => (
+                  <TransactionCard
+                    key={property.street_group_property_id}
+                    property={property}
+                    isSelected={true}
+                    onSelect={() => handleSelectComparable(property.street_group_property_id)}
+                    onDeselect={() => handleDeselectComparable(property.street_group_property_id)}
+                    onViewDetails={() => handleViewDetails(property)}
+                  />
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Loading Skeletons */}
+          <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4">
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <TransactionCardSkeleton key={index} />
+              ))}
             </div>
           </div>
         </div>
@@ -1352,188 +1323,28 @@ export default function ComparablesAnalysis({
   if (groupedProperties.length === 0) {
     return (
       <>
-        {/* Two-Column Layout */}
-        <div className="flex gap-6">
-          {/* Left Sidebar - Valuation + Filters */}
-          <div className="w-72 flex-shrink-0">
-            {/* Valuation Box (same width as filters) */}
-            <ValuationDisplay
-              valuation={null}
-              strategy={valuationStrategy}
-              onStrategyChange={handleStrategyChange}
-              selectedCount={0}
-              isLoading={false}
-              subjectPropertyData={subjectPropertyData}
-              hasLoadedInitialData={hasLoadedInitialData}
-            />
-
-
-            {/* Filters */}
-            <div className="mt-4">
-              <FilterControls
-                filters={filters}
-                onFiltersChange={setFilters}
-                propertyTypes={propertyTypes}
-                totalCount={0}
-                filteredCount={0}
-              />
-            </div>
-          </div>
-
-          {/* Right Content - Selected Comparables and Empty State */}
-          <div className="flex-1 min-w-0 space-y-6">
-            {/* Selected Comparables Section */}
-            {hasLoadedInitialData && (
-              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 min-h-[200px]">
-                <h3 className="text-lg font-semibold text-gray-100 mb-3">
-                  Selected Comparables ({selectedProperties.length})
-                </h3>
-                {selectedProperties.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400">
-                    <p className="mb-4">Selected comparables from the list below will show here</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {selectedProperties.map(property => (
-                      <TransactionCard
-                        key={property.street_group_property_id}
-                        property={property}
-                        isSelected={true}
-                        onSelect={() => handleSelectComparable(property.street_group_property_id)}
-                        onDeselect={() => handleDeselectComparable(property.street_group_property_id)}
-                        onViewDetails={() => handleViewDetails(property)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Empty State */}
-            <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-6">
-              <div className="text-center py-12">
-                <div className="text-4xl mb-4 opacity-50">🏘️</div>
-                <h3 className="text-xl font-semibold text-gray-200 mb-3">No Nearby Transactions</h3>
-                <p className="text-gray-400">No comparable transactions found for this property.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </>
-    )
-  }
-
-  return (
-    <>
-      {/* Two-Column Layout */}
-      <div className="flex gap-6">
-        {/* Left Sidebar - Valuation + Filters */}
-        <div className="w-72 flex-shrink-0">
-          {/* Valuation Box (same width as filters) */}
+        {/* Full Width Layout */}
+        <div className="space-y-6">
+          {/* Valuation Display */}
           <ValuationDisplay
-            valuation={calculatedValuation}
+            valuation={null}
             strategy={valuationStrategy}
             onStrategyChange={handleStrategyChange}
-            selectedCount={selectedComparableIds.length}
-            isLoading={isLoadingValuation}
+            selectedCount={0}
+            isLoading={false}
             subjectPropertyData={subjectPropertyData}
             hasLoadedInitialData={hasLoadedInitialData}
           />
 
-
-          {/* Filters */}
-          <div className="mt-4">
-          {!hasLoadedInitialData ? (
-            // Filters Skeleton
-            <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4">
-              <div className="space-y-4">
-                <div className="h-5 bg-gray-700/30 rounded w-20 animate-pulse"></div>
-                <div className="space-y-3">
-                  <div className="h-4 bg-gray-700/30 rounded w-16 animate-pulse"></div>
-                  <div className="h-8 bg-gray-700/30 rounded animate-pulse"></div>
-                </div>
-                <div className="space-y-3">
-                  <div className="h-4 bg-gray-700/30 rounded w-20 animate-pulse"></div>
-                  <div className="h-8 bg-gray-700/30 rounded animate-pulse"></div>
-                </div>
-                <div className="space-y-3">
-                  <div className="h-4 bg-gray-700/30 rounded w-24 animate-pulse"></div>
-                  <div className="h-8 bg-gray-700/30 rounded animate-pulse"></div>
-                </div>
-                <div className="space-y-3">
-                  <div className="h-4 bg-gray-700/30 rounded w-18 animate-pulse"></div>
-                  <div className="h-8 bg-gray-700/30 rounded animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <FilterControls
-              filters={filters}
-              onFiltersChange={setFilters}
-              propertyTypes={propertyTypes}
-              totalCount={groupedProperties.length}
-              filteredCount={filteredProperties.length}
-            />
-          )}
-          </div>
-          
-          {/* Other Sources Section */}
-          <div className="mt-6">
-            <h3 className="text-sm font-medium text-gray-300 mb-3">Other sources</h3>
-            <div className="space-y-2">
-              {subjectPropertyData?.postcode && (
-                <a
-                  href={`https://www.rightmove.co.uk/house-prices/${subjectPropertyData.postcode.toLowerCase().replace(/\s+/g, '-')}.html`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex bg-gray-700/30 hover:bg-gray-600/30 border border-gray-600/30 hover:border-gray-500/50 rounded-lg px-3 py-2 text-gray-400 hover:text-gray-300 transition-all duration-200 text-xs items-center gap-2 group"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                  Rightmove House Prices
-                  <svg className="w-2 h-2 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </a>
-              )}
-              {subjectPropertyData?.postcode && (
-                <a
-                  href={`https://www.zoopla.co.uk/house-prices/walkden/everside-close/m28-3ey/?new_homes=include&q=M28+3EY&view_type=list`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex bg-gray-700/30 hover:bg-gray-600/30 border border-gray-600/30 hover:border-gray-500/50 rounded-lg px-3 py-2 text-gray-400 hover:text-gray-300 transition-all duration-200 text-xs items-center gap-2 group"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                  Zoopla House Prices
-                  <svg className="w-2 h-2 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Content - Selected Comparables and Transaction List */}
-        <div className="flex-1 min-w-0 space-y-6">
           {/* Selected Comparables Section */}
-            {hasLoadedInitialData && (
-              <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 min-h-[200px]">
+          {hasLoadedInitialData && (
+            <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 min-h-[200px]">
               <h3 className="text-lg font-semibold text-gray-100 mb-3">
                 Selected Comparables ({selectedProperties.length})
               </h3>
               {selectedProperties.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   <p className="mb-4">Selected comparables from the list below will show here</p>
-                  <button
-                    onClick={handleAISelectComparables}
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg shadow-lg hover:shadow-purple-500/25 transition-all duration-200 text-sm font-medium"
-                  >
-                    Auto-select comparables with AI
-                  </button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1552,44 +1363,141 @@ export default function ComparablesAnalysis({
             </div>
           )}
 
-          {/* Nearby Transactions Section */}
-          <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                {!hasLoadedInitialData ? (
-                  <>
-                    <div className="h-6 bg-gray-700/30 rounded w-64 animate-pulse mb-2"></div>
-                    <div className="h-4 bg-gray-700/30 rounded w-48 animate-pulse"></div>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-lg font-semibold text-gray-100">
-                      Available nearby transactions ({availableProperties.length})
-                    </h3>
-                  </>
-                )}
-              </div>
-              
-              {/* Sort Dropdown */}
-              {hasLoadedInitialData && (
-                <div className="relative">
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="bg-black/40 border border-gray-600 rounded-md px-3 py-2 pr-10 text-xs font-medium text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
-                  >
-                    {SORT_OPTIONS.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                  <div className="absolute top-1/2 right-2 transform -translate-y-1/2 pointer-events-none">
-                    <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          {/* Empty State */}
+          <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-6">
+            <div className="text-center py-12">
+              <div className="text-4xl mb-4 opacity-50">🏘️</div>
+              <h3 className="text-xl font-semibold text-gray-200 mb-3">No Nearby Transactions</h3>
+              <p className="text-gray-400">No comparable transactions found for this property.</p>
+            </div>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <>
+      {/* Full Width Layout */}
+      <div className="space-y-6">
+        {/* Valuation Display */}
+        <ValuationDisplay
+          valuation={calculatedValuation}
+          strategy={valuationStrategy}
+          onStrategyChange={handleStrategyChange}
+          selectedCount={selectedComparableIds.length}
+          isLoading={isLoadingValuation}
+          subjectPropertyData={subjectPropertyData}
+          hasLoadedInitialData={hasLoadedInitialData}
+        />
+
+        {/* Selected Comparables Section */}
+        {hasLoadedInitialData && (
+          <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4 min-h-[200px]">
+            <h3 className="text-lg font-semibold text-gray-100 mb-3">
+              Selected Comparables ({selectedProperties.length})
+            </h3>
+            {selectedProperties.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <p className="mb-4">Selected comparables from the list below will show here</p>
+                <button
+                  onClick={handleAISelectComparables}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg shadow-lg hover:shadow-purple-500/25 transition-all duration-200 text-sm font-medium inline-flex items-center gap-2"
+                >
+                    <svg
+                      className="w-4 h-4 text-white drop-shadow"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 2l1.8 4.6L18 8.4l-4.2 1.8L12 15l-1.8-4.8L6 8.4l4.2-1.8L12 2z" fill="currentColor" opacity="0.9"/>
+                      <path d="M19 11l1 2.6L23 14l-3 1.2L19 18l-1-2.8L15 14l3-0.4L19 11z" fill="currentColor" opacity="0.7"/>
+                      <path d="M6 12l0.9 2.2L9 15l-2.1 0.8L6 18l-0.9-2.2L3 15l2.1-0.2L6 12z" fill="currentColor" opacity="0.7"/>
                     </svg>
-                  </div>
-                </div>
+                    Auto-select comparables with AI
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedProperties.map(property => (
+                  <TransactionCard
+                    key={property.street_group_property_id}
+                    property={property}
+                    isSelected={true}
+                    onSelect={() => handleSelectComparable(property.street_group_property_id)}
+                    onDeselect={() => handleDeselectComparable(property.street_group_property_id)}
+                    onViewDetails={() => handleViewDetails(property)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Nearby Transactions Section */}
+        <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              {!hasLoadedInitialData ? (
+                <>
+                  <div className="h-6 bg-gray-700/30 rounded w-64 animate-pulse mb-2"></div>
+                  <div className="h-4 bg-gray-700/30 rounded w-48 animate-pulse"></div>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-lg font-semibold text-gray-100">
+                    Available nearby transactions ({availableProperties.length})
+                  </h3>
+                </>
               )}
             </div>
+            
+            {/* Sort Dropdown */}
+            {hasLoadedInitialData && (
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="bg-black/40 border border-gray-600 rounded-md px-3 py-2 pr-10 text-xs font-medium text-gray-100 focus:outline-none focus:border-purple-400 appearance-none"
+                >
+                  {SORT_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <div className="absolute top-1/2 right-2 transform -translate-y-1/2 pointer-events-none">
+                  <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Filters */}
+          <div className="mb-4">
+            {!hasLoadedInitialData ? (
+              // Filters Skeleton
+              <div className="bg-black/20 border border-gray-500/30 rounded-lg p-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <div className="h-3 bg-gray-700/30 rounded w-20 animate-pulse"></div>
+                      <div className="h-8 bg-gray-700/30 rounded animate-pulse"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <FilterControls
+                filters={filters}
+                onFiltersChange={setFilters}
+                propertyTypes={propertyTypes}
+                totalCount={groupedProperties.length}
+                filteredCount={filteredProperties.length}
+              />
+            )}
+          </div>
             
             <div className="space-y-3">
               {!hasLoadedInitialData ? (
@@ -1652,10 +1560,6 @@ export default function ComparablesAnalysis({
             </div>
           </div>
         </div>
-      </div>
-
-
-
     </>
   )
 }

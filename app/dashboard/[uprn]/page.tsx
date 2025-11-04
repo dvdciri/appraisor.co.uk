@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Image from 'next/image'
@@ -850,7 +850,7 @@ const PropertySummary = ({
   propertyData, 
   getPropertyValue, 
   copyToClipboard, 
-  formatArea 
+  formatArea
 }: { 
   propertyData: PropertyData | null
   getPropertyValue: (path: string, fallback?: string) => any
@@ -863,7 +863,7 @@ const PropertySummary = ({
     <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl shadow-2xl p-4 mb-4 w-full">
       {/* Address and Postcode */}
       <div className="flex items-center gap-2 mb-3">
-        <p className="text-gray-100 text-lg font-semibold">
+        <p className="text-gray-100 text-2xl font-semibold">
           {getPropertyValue('address.street_group_format.address_lines')}
           {getPropertyValue('address.street_group_format.postcode') !== 'N/A' && (
             <span className="text-gray-300 ml-2">
@@ -891,38 +891,38 @@ const PropertySummary = ({
       <div className="flex flex-wrap gap-2">
         {getPropertyValue('property_type.value') !== 'N/A' && (
           <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
-            <span className="text-gray-400 text-xs">Type:</span>
-            <span className="text-gray-100 font-medium text-xs">{getPropertyValue('property_type.value')}</span>
+            <span className="text-gray-400 text-sm">Type:</span>
+            <span className="text-gray-100 font-medium text-sm">{getPropertyValue('property_type.value')}</span>
           </div>
         )}
         {getPropertyValue('tenure.tenure_type') !== 'N/A' && (
           <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
-            <span className="text-gray-400 text-xs">Tenure:</span>
-            <span className="text-gray-100 font-medium text-xs">{getPropertyValue('tenure.tenure_type')}</span>
+            <span className="text-gray-400 text-sm">Tenure:</span>
+            <span className="text-gray-100 font-medium text-sm">{getPropertyValue('tenure.tenure_type')}</span>
           </div>
         )}
         {getPropertyValue('number_of_bedrooms.value') !== 'N/A' && (
           <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
-            <span className="text-gray-400 text-xs">Beds:</span>
-            <span className="text-gray-100 font-medium text-xs">{getPropertyValue('number_of_bedrooms.value', '0')}</span>
+            <span className="text-gray-400 text-sm">Beds:</span>
+            <span className="text-gray-100 font-medium text-sm">{getPropertyValue('number_of_bedrooms.value', '0')}</span>
           </div>
         )}
         {getPropertyValue('number_of_bathrooms.value') !== 'N/A' && (
           <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
-            <span className="text-gray-400 text-xs">Baths:</span>
-            <span className="text-gray-100 font-medium text-xs">{getPropertyValue('number_of_bathrooms.value', '0')}</span>
+            <span className="text-gray-400 text-sm">Baths:</span>
+            <span className="text-gray-100 font-medium text-sm">{getPropertyValue('number_of_bathrooms.value', '0')}</span>
           </div>
         )}
         {getPropertyValue('internal_area_square_metres') !== 'N/A' && getPropertyValue('internal_area_square_metres') !== '0' && (
           <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
-            <span className="text-gray-400 text-xs">Area:</span>
-            <span className="text-gray-100 font-medium text-xs">{formatArea(getPropertyValue('internal_area_square_metres', '0'))}</span>
+            <span className="text-gray-400 text-sm">Area:</span>
+            <span className="text-gray-100 font-medium text-sm">{formatArea(getPropertyValue('internal_area_square_metres', '0'))}</span>
           </div>
         )}
         {getPropertyValue('council_tax.band') !== 'N/A' && (
           <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
-            <span className="text-gray-400 text-xs">Council Tax:</span>
-            <span className="text-gray-100 font-medium text-xs">
+            <span className="text-gray-400 text-sm">Council Tax:</span>
+            <span className="text-gray-100 font-medium text-sm">
               Band {getPropertyValue('council_tax.band')}
               {getPropertyValue('council_tax.current_annual_charge') !== 'N/A' && (
                 <span className="text-gray-400 ml-1">(£{parseFloat(getPropertyValue('council_tax.current_annual_charge', '0')).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })})</span>
@@ -932,8 +932,8 @@ const PropertySummary = ({
         )}
         {getPropertyValue('construction_age_band') !== 'N/A' && (
           <div className="flex items-center gap-2 bg-gray-500/10 rounded-lg px-3 py-1.5">
-            <span className="text-gray-400 text-xs">Age:</span>
-            <span className="text-gray-100 font-medium text-xs">{getPropertyValue('construction_age_band')}</span>
+            <span className="text-gray-400 text-sm">Age:</span>
+            <span className="text-gray-100 font-medium text-sm">{getPropertyValue('construction_age_band')}</span>
           </div>
         )}
       </div>
@@ -982,6 +982,11 @@ export default function DashboardV1() {
   const [aiComparablesError, setAIComparablesError] = useState<string | null>(null)
   const [aiLoadingStatus, setAILoadingStatus] = useState<string>('')
   const [aiLoadingProgress, setAILoadingProgress] = useState<number>(0)
+  // Animated preview while AI is selecting comparables
+  const [aiPreviewIndex, setAIPreviewIndex] = useState<number>(0)
+  const [aiPreviewList, setAIPreviewList] = useState<any[]>([])
+  const [aiPreviewVisible, setAIPreviewVisible] = useState<boolean>(true)
+  const aiFakeTimersRef = useRef<any[]>([])
   const uprn = params.uprn as string
 
   // Helper functions to safely extract property data
@@ -1291,6 +1296,20 @@ export default function DashboardV1() {
     setIsLoadingAIComparables(true)
     setAIComparablesResult(null)
     setAIComparablesError(null)
+    // seed preview list (shuffle a subset for variety)
+    const shuffled = [...nearbyTransactions].sort(() => Math.random() - 0.5)
+    setAIPreviewList(shuffled.slice(0, Math.min(16, shuffled.length)))
+    setAIPreviewIndex(0)
+    // Start local fake status updates (remove server-driven statuses)
+    setAILoadingStatus(`Analysing ${nearbyTransactions.length} transactions nearby`)
+    setAILoadingProgress(10)
+    aiFakeTimersRef.current.forEach((t: any) => clearTimeout(t))
+    aiFakeTimersRef.current = [
+      setTimeout(() => { setAILoadingStatus('Selecting the best candidates'); setAILoadingProgress(30) }, 4000),
+      setTimeout(() => { setAILoadingStatus('Identifying similarities from pictures'); setAILoadingProgress(60) }, 9000),
+      setTimeout(() => { setAILoadingStatus('Putting it all together'); setAILoadingProgress(80) }, 14000),
+      setTimeout(() => { setAILoadingStatus('Picking top choices'); setAILoadingProgress(90) }, 19000),
+    ]
     
     try {
       // Use fetch with POST for SSE (EventSource doesn't support POST, so we'll use fetch with streaming)
@@ -1331,20 +1350,28 @@ export default function DashboardV1() {
               const data = JSON.parse(line.slice(6))
               
               if (data.type === 'status') {
-                setAILoadingStatus(data.status)
-                setAILoadingProgress(data.progress || 0)
+                // Ignore backend statuses; we show local fake statuses instead
               } else if (data.type === 'result') {
                 // Show results
                 setAIComparablesResult(data.data)
                 setIsLoadingAIComparables(false)
+                aiFakeTimersRef.current.forEach((t: any) => clearTimeout(t))
+                aiFakeTimersRef.current = []
+                setAILoadingStatus('')
+                setAILoadingProgress(0)
               } else if (data.type === 'complete') {
-                setAILoadingProgress(100)
                 setIsLoadingAIComparables(false)
+                aiFakeTimersRef.current.forEach((t: any) => clearTimeout(t))
+                aiFakeTimersRef.current = []
+                setAILoadingStatus('')
+                setAILoadingProgress(0)
               } else if (data.type === 'error') {
                 setAIComparablesError(data.message || 'Failed to select comparables')
                 setIsLoadingAIComparables(false)
                 setAILoadingStatus('')
                 setAILoadingProgress(0)
+                aiFakeTimersRef.current.forEach((t: any) => clearTimeout(t))
+                aiFakeTimersRef.current = []
               }
             } catch (e) {
               console.error('Error parsing SSE data:', e)
@@ -1360,6 +1387,23 @@ export default function DashboardV1() {
       setAILoadingProgress(0)
     }
   }
+
+  // Rotate preview while loading with slower fade out/in
+  useEffect(() => {
+    if (!showAIComparablesDialog || !isLoadingAIComparables || aiPreviewList.length === 0) return
+    let switchTimeout: any
+    const id = setInterval(() => {
+      setAIPreviewVisible(false)
+      switchTimeout = setTimeout(() => {
+        setAIPreviewIndex(prev => (prev + 1) % aiPreviewList.length)
+        setAIPreviewVisible(true)
+      }, 450) // slower fade-out before switching
+    }, 1400)
+    return () => {
+      clearInterval(id)
+      if (switchTimeout) clearTimeout(switchTimeout)
+    }
+  }, [showAIComparablesDialog, isLoadingAIComparables, aiPreviewList.length])
 
   const handleAcceptAIComparables = async () => {
     if (aiComparablesResult && aiComparablesResult.comparables.length > 0) {
@@ -1406,14 +1450,18 @@ export default function DashboardV1() {
     setAIComparablesError(null)
     setAILoadingStatus(`Analysing ${nearbyTransactions.length} transactions nearby`)
     setAILoadingProgress(10)
+    // seed preview list for debug
+    const shuffled = [...nearbyTransactions].sort(() => Math.random() - 0.5)
+    setAIPreviewList(shuffled.slice(0, Math.min(16, shuffled.length)))
+    setAIPreviewIndex(0)
 
     // Progress simulation
     const progressUpdates = [
-      { delay: 600, status: 'Selecting the best candidates', progress: 25 },
-      { delay: 1400, status: 'Identifying similarities from pictures', progress: 60 },
-      { delay: 2200, status: 'Putting it all together', progress: 80 },
-      { delay: 3000, status: 'Picking 5 top choices', progress: 85 },
-      { delay: 3500, status: 'Finalizing results', progress: 100 }
+      { delay: 4000, status: 'Selecting the best candidates', progress: 30 },
+      { delay: 9000, status: 'Identifying similarities from pictures', progress: 60 },
+      { delay: 14000, status: 'Putting it all together', progress: 80 },
+      { delay: 19000, status: 'Picking top choices', progress: 90 },
+      { delay: 23000, status: 'Finalizing results', progress: 100 }
     ]
 
     const progressTimers = progressUpdates.map(({ delay, status, progress }) => 
@@ -1879,6 +1927,36 @@ export default function DashboardV1() {
                       </div>
                     </div>
                   </div>
+                {/* External links */}
+                <div className="mt-4">
+                  <h3 className="text-xl font-semibold text-gray-100 mb-3">External links</h3>
+                  <div className="flex items-center gap-3">
+                    <a
+                      href={`https://www.zoopla.co.uk/property/uprn/${encodeURIComponent(uprn)}/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg border border-purple-500/50 transition-colors duration-200 text-sm font-medium"
+                      title="Open on Zoopla"
+                    >
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      <span>Zoopla</span>
+                    </a>
+                    <a
+                      href={`https://find-energy-certificate.service.gov.uk/find-a-certificate/search-by-postcode?postcode=${encodeURIComponent((getPropertyValue('address.street_group_format.postcode') || '').toString()).replace(/%20/g, '+')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg border border-purple-500/50 transition-colors duration-200 text-sm font-medium"
+                      title="Open on EPC Register"
+                    >
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      <span>EPC Register</span>
+                    </a>
+                  </div>
+                </div>
                         </div>
                       </div>
                     ) : (
@@ -2264,6 +2342,10 @@ export default function DashboardV1() {
             setAIComparablesError(null)
             setAILoadingStatus('')
             setAILoadingProgress(0)
+            setAIPreviewList([])
+            setAIPreviewIndex(0)
+            aiFakeTimersRef.current.forEach((t: any) => clearTimeout(t))
+            aiFakeTimersRef.current = []
           }}
           title="AI Comparables Selection"
           maxWidth="xl"
@@ -2286,22 +2368,68 @@ export default function DashboardV1() {
               <p className="text-gray-200 text-xl font-medium text-center mb-6">
                 Our AI agent is finding the best comparables for your property
               </p>
-              
-              {/* Status Updates */}
-              <div className="w-full max-w-md space-y-4">
+
+              {/* Status Text (no progress bar) - moved above preview and larger */}
+              <div className="w-full max-w-xl mb-4">
                 {aiLoadingStatus && (
-                  <div className="text-center">
-                    <p className="text-gray-300 text-sm mb-3">{aiLoadingStatus}</p>
-                    {/* Progress Bar */}
-                    <div className="w-full bg-gray-700/50 rounded-full h-2 overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-500 ease-out"
-                        style={{ width: `${aiLoadingProgress}%` }}
-                      ></div>
-                    </div>
-                  </div>
+                  <p className="text-center text-gray-200 text-lg font-medium">{aiLoadingStatus}</p>
                 )}
               </div>
+
+              {/* Cycling Comparable Preview */}
+              {aiPreviewList.length > 0 && (
+                <div className="w-full max-w-xl mb-6">
+                  {(() => {
+                    const t = aiPreviewList[aiPreviewIndex]
+                    return (
+                      <div key={t?.street_group_property_id || aiPreviewIndex} className={`bg-black/20 border border-gray-600/30 rounded-xl p-4 transition-opacity duration-700 ease-in-out ${aiPreviewVisible ? 'opacity-100' : 'opacity-0'}`}>
+                        <div className="flex gap-4 items-center">
+                          <div className="flex-shrink-0">
+                            <StreetViewImage
+                              address={t?.address?.street_group_format?.address_lines || ''}
+                              postcode={t?.address?.street_group_format?.postcode || ''}
+                              latitude={t?.location?.coordinates?.latitude}
+                              longitude={t?.location?.coordinates?.longitude}
+                              className="w-20 h-20 object-cover rounded-lg"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start mb-1">
+                              <div className="truncate pr-3">
+                                <div className="text-sm font-medium text-gray-100 truncate">{t?.address?.street_group_format?.address_lines || 'Address not available'}</div>
+                                <div className="text-xs text-gray-400 truncate">{t?.address?.street_group_format?.postcode || ''}</div>
+                              </div>
+                              <div className="text-right ml-2">
+                                <div className="text-sm font-semibold text-white">
+                                  {t?.price ? new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(t.price) : '—'}
+                                </div>
+                                <div className="text-[10px] text-gray-400">{t?.transaction_date ? new Date(t.transaction_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}</div>
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center text-xs text-gray-400">
+                              <div className="flex gap-4">
+                                <span>{t?.number_of_bedrooms || 0} bed</span>
+                                <span>{t?.number_of_bathrooms || 0} bath</span>
+                                <span>{t?.property_type || 'Unknown'}</span>
+                                <span>{t?.internal_area_square_metres || 0}m²</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {Array.from({ length: 3 }).map((_, i) => {
+                                  const activeDots = Math.max(1, Math.ceil((aiLoadingProgress || 1) / 33))
+                                  const active = i < activeDots
+                                  return (
+                                    <span key={i} className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-gradient-to-r from-purple-400 to-pink-400' : 'bg-gray-600'}`}></span>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
             </div>
           ) : aiComparablesError ? (
             <div className="flex flex-col items-center justify-center py-12">
@@ -2335,8 +2463,7 @@ export default function DashboardV1() {
                   <p className="text-sm text-gray-300 leading-relaxed">
                     Analysed <span className="font-semibold text-gray-100">{aiComparablesResult.context.total_candidates_considered}</span> nearby transactions
                     {' '}matching the property type, size (±{aiComparablesResult.context.size_tolerance_percent}%), bedrooms, and bathrooms.
-                    {' '}Assessed <span className="font-semibold text-gray-100">{aiComparablesResult.context.candidates_sent_to_ai}</span> candidates across {aiComparablesResult.context.buckets_used?.length || 1} search strategies, selecting only properties with visual similarity ≥{aiComparablesResult.context.min_similarity_score || 80}%.
-                    {' '}The top <span className="font-semibold text-gray-100">{aiComparablesResult.comparables.length}</span> properties below were selected from strategies: <span className="font-semibold text-gray-100">{aiComparablesResult.context.relaxation_strategy.toLowerCase()}</span>.
+                    {' '}Selected <span className="font-semibold text-gray-100">{aiComparablesResult.comparables.length}</span> top matches with high visual similarity.
                   </p>
                 </div>
               )}

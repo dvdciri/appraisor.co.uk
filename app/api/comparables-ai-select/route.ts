@@ -93,6 +93,39 @@ function createComparableBuckets(
   const sizeMin = targetProperty.internalArea * (1 - SIZE_TOLERANCE_PERCENT / 100)
   const sizeMax = targetProperty.internalArea * (1 + SIZE_TOLERANCE_PERCENT / 100)
 
+  console.log('[Comparables Selection] Filtering criteria:', {
+    size_min: sizeMin,
+    size_max: sizeMax,
+    target_beds: targetProperty.bedrooms,
+    target_baths: targetProperty.bathrooms,
+    target_type: targetProperty.propertyType
+  })
+  
+  // Log before filtering to see raw transaction data
+  console.log('[Comparables Selection] Pre-filter transaction analysis:', {
+    total_transactions: transactions.length,
+    transactions_with_beds: transactions.filter(t => t.number_of_bedrooms !== null && t.number_of_bedrooms !== undefined).length,
+    transactions_with_baths: transactions.filter(t => t.number_of_bathrooms !== null && t.number_of_bathrooms !== undefined).length,
+    transactions_with_type: transactions.filter(t => t.property_type).length,
+    transactions_with_size: transactions.filter(t => t.internal_area_square_metres).length,
+    unique_types: [...new Set(transactions.map(t => t.property_type))],
+    bed_range: {
+      min: Math.min(...transactions.map(t => t.number_of_bedrooms || 0)),
+      max: Math.max(...transactions.map(t => t.number_of_bedrooms || 0)),
+      target: targetProperty.bedrooms
+    },
+    bath_range: {
+      min: Math.min(...transactions.map(t => t.number_of_bathrooms || 0)),
+      max: Math.max(...transactions.map(t => t.number_of_bathrooms || 0)),
+      target: targetProperty.bathrooms
+    },
+    size_range: {
+      min: Math.min(...transactions.map(t => t.internal_area_square_metres || 0)),
+      max: Math.max(...transactions.map(t => t.internal_area_square_metres || 0)),
+      target: targetProperty.internalArea
+    }
+  })
+  
   let candidates = transactions.filter(t => {
     // Match beds, baths, property type exactly
     const bedsMatch = t.number_of_bedrooms === targetProperty.bedrooms
@@ -100,10 +133,40 @@ function createComparableBuckets(
     const typeMatch = t.property_type === targetProperty.propertyType
     const sizeMatch = t.internal_area_square_metres >= sizeMin && t.internal_area_square_metres <= sizeMax
 
-    return bedsMatch && bathsMatch && typeMatch && sizeMatch
+    const matches = bedsMatch && bathsMatch && typeMatch && sizeMatch
+    
+    // Log why transactions are filtered out (first few only to avoid spam)
+    if (!matches && transactions.indexOf(t) < 5) {
+      console.log(`[Comparables Selection] Transaction ${t.street_group_property_id} filtered out:`, {
+        address: t.address?.street_group_format?.address_lines,
+        beds_match: bedsMatch,
+        baths_match: bathsMatch,
+        type_match: typeMatch,
+        size_match: sizeMatch,
+        transaction_beds: t.number_of_bedrooms,
+        transaction_baths: t.number_of_bathrooms,
+        transaction_type: t.property_type,
+        transaction_size: t.internal_area_square_metres
+      })
+    }
+
+    return matches
   })
 
   const totalCandidatesConsidered = candidates.length
+  console.log('[Comparables Selection] After initial filtering:', {
+    candidates_found: totalCandidatesConsidered,
+    filtered_out: transactions.length - totalCandidatesConsidered,
+    filter_breakdown: {
+      beds_mismatch: transactions.filter(t => t.number_of_bedrooms !== targetProperty.bedrooms).length,
+      baths_mismatch: transactions.filter(t => t.number_of_bathrooms !== targetProperty.bathrooms).length,
+      type_mismatch: transactions.filter(t => t.property_type !== targetProperty.propertyType).length,
+      size_mismatch: transactions.filter(t => {
+        const size = t.internal_area_square_metres
+        return !size || size < sizeMin || size > sizeMax
+      }).length
+    }
+  })
 
   // Progressive relaxation strategies - create a bucket for each
   const relaxationStrategies = [
@@ -308,11 +371,19 @@ export async function POST(request: NextRequest) {
     // Regular request handling
     return handleRegularRequest(request)
   } catch (error: any) {
-    console.error('[Comparables AI Agent] Error:', {
+    console.error('[Comparables AI Agent] ===== TOP LEVEL ERROR =====')
+    console.error('[Comparables AI Agent] Error details:', {
       message: error.message,
       stack: error.stack,
-      uprn: requestUprn
+      name: error.name,
+      uprn: requestUprn,
+      error_type: error.constructor.name,
+      error_keys: Object.keys(error)
     })
+    if (error.cause) {
+      console.error('[Comparables AI Agent] Error cause:', error.cause)
+    }
+    console.error('[Comparables AI Agent] ===== END TOP LEVEL ERROR =====\n')
     
     requestContext = null
 
@@ -357,7 +428,8 @@ async function handleRegularRequest(request: NextRequest) {
   const targetStreet = body.targetStreet || ''
   const transactions = nearbyTransactions as ComparableTransaction[]
 
-  console.log('[Comparables Selection] Starting bucket creation:', {
+  console.log('[Comparables Selection] ===== STARTING REQUEST =====')
+  console.log('[Comparables Selection] Request details:', {
     uprn,
     target_address: targetPropertyData.address,
     target_property_type: targetPropertyData.propertyType,
@@ -365,8 +437,16 @@ async function handleRegularRequest(request: NextRequest) {
     target_baths: targetPropertyData.bathrooms,
     target_sqm: targetPropertyData.internalArea,
     target_street: targetStreet,
+    target_location: targetPropertyData.location,
     available_transactions: transactions.length
   })
+  
+  // Log sample transactions to see what data we're working with
+  if (transactions.length > 0) {
+    console.log('[Comparables Selection] Sample transaction (first):', JSON.stringify(transactions[0], null, 2))
+  } else {
+    console.warn('[Comparables Selection] WARNING: No transactions provided!')
+  }
 
   const { buckets, totalCandidatesConsidered } = createComparableBuckets(
     transactions,
@@ -386,6 +466,44 @@ async function handleRegularRequest(request: NextRequest) {
   })
 
   if (buckets.length === 0 || totalCandidatesConsidered === 0) {
+    console.error('[Comparables Selection] ===== NO COMPARABLES FOUND =====')
+    console.error('[Comparables Selection] Failure details:', {
+      buckets_created: buckets.length,
+      total_candidates: totalCandidatesConsidered,
+      transactions_provided: transactions.length,
+      target_property: {
+        address: targetPropertyData.address,
+        type: targetPropertyData.propertyType,
+        beds: targetPropertyData.bedrooms,
+        baths: targetPropertyData.bathrooms,
+        sqm: targetPropertyData.internalArea,
+        size_min: sizeMin,
+        size_max: sizeMax,
+        street: targetStreet
+      },
+      transaction_analysis: {
+        total: transactions.length,
+        with_location: transactions.filter(t => t.location?.coordinates).length,
+        unique_property_types: [...new Set(transactions.map(t => t.property_type))],
+        bed_counts: transactions.reduce((acc, t) => {
+          const beds = t.number_of_bedrooms || 0
+          acc[beds] = (acc[beds] || 0) + 1
+          return acc
+        }, {} as Record<number, number>),
+        bath_counts: transactions.reduce((acc, t) => {
+          const baths = t.number_of_bathrooms || 0
+          acc[baths] = (acc[baths] || 0) + 1
+          return acc
+        }, {} as Record<number, number>),
+        size_distribution: {
+          min: transactions.length > 0 ? Math.min(...transactions.map(t => t.internal_area_square_metres || 0)) : 0,
+          max: transactions.length > 0 ? Math.max(...transactions.map(t => t.internal_area_square_metres || 0)) : 0,
+          avg: transactions.length > 0 ? transactions.reduce((sum, t) => sum + (t.internal_area_square_metres || 0), 0) / transactions.length : 0
+        }
+      }
+    })
+    console.error('[Comparables Selection] ===== END ERROR LOG =====\n')
+    
     return NextResponse.json(
       {
         success: false,
@@ -462,8 +580,44 @@ async function handleRegularRequest(request: NextRequest) {
     ]
   }
 
-  const result = await run(comparablesAgent, [userMessage])
-  const modelOutput = ComparablesSelectionOutputSchema.parse(result.finalOutput)
+  console.log('[Comparables Selection] Calling AI agent...')
+  let result
+  try {
+    result = await run(comparablesAgent, [userMessage])
+    console.log('[Comparables Selection] AI agent completed successfully')
+  } catch (error: any) {
+    console.error('[Comparables Selection] ===== AI AGENT ERROR =====')
+    console.error('[Comparables Selection] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      uprn
+    })
+    console.error('[Comparables Selection] ===== END AI ERROR =====\n')
+    throw error
+  }
+  
+  console.log('[Comparables Selection] Parsing AI output...')
+  let modelOutput
+  try {
+    modelOutput = ComparablesSelectionOutputSchema.parse(result.finalOutput)
+    console.log('[Comparables Selection] AI output parsed successfully:', {
+      comparables_count: modelOutput.comparables.length,
+      comparables: modelOutput.comparables.map(c => ({
+        id: c.street_group_property_id,
+        score: c.similarity_score
+      }))
+    })
+  } catch (parseError: any) {
+    console.error('[Comparables Selection] ===== OUTPUT PARSING ERROR =====')
+    console.error('[Comparables Selection] Parse error:', {
+      message: parseError.message,
+      issues: parseError.issues,
+      raw_output: JSON.stringify(result.finalOutput, null, 2)
+    })
+    console.error('[Comparables Selection] ===== END PARSE ERROR =====\n')
+    throw parseError
+  }
 
   // Log token usage
   const usage = result.state._context.usage
@@ -613,6 +767,21 @@ async function handleSSERequest(request: NextRequest) {
         })
 
         if (buckets.length === 0 || totalCandidatesConsidered === 0) {
+          console.error('[Comparables Selection SSE] ===== NO COMPARABLES FOUND =====')
+          console.error('[Comparables Selection SSE] Failure details:', {
+            buckets_created: buckets.length,
+            total_candidates: totalCandidatesConsidered,
+            transactions_provided: nearbyTransactions.length,
+            target_property: {
+              address: targetPropertyData.address,
+              type: targetPropertyData.propertyType,
+              beds: targetPropertyData.bedrooms,
+              baths: targetPropertyData.bathrooms,
+              sqm: targetPropertyData.internalArea
+            }
+          })
+          console.error('[Comparables Selection SSE] ===== END ERROR LOG =====\n')
+          
           send({ type: 'error', message: 'No suitable comparables found matching the criteria' })
           controller.close()
           return
@@ -687,8 +856,36 @@ async function handleSSERequest(request: NextRequest) {
           ]
         }
 
-        const result = await run(comparablesAgent, [userMessage])
-        const modelOutput = ComparablesSelectionOutputSchema.parse(result.finalOutput)
+        console.log('[Comparables Selection SSE] Calling AI agent...')
+        let result
+        try {
+          result = await run(comparablesAgent, [userMessage])
+          console.log('[Comparables Selection SSE] AI agent completed successfully')
+        } catch (error: any) {
+          console.error('[Comparables Selection SSE] ===== AI AGENT ERROR =====')
+          console.error('[Comparables Selection SSE] Error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+          })
+          console.error('[Comparables Selection SSE] ===== END AI ERROR =====\n')
+          throw error
+        }
+        
+        let modelOutput
+        try {
+          modelOutput = ComparablesSelectionOutputSchema.parse(result.finalOutput)
+          console.log('[Comparables Selection SSE] AI output parsed successfully')
+        } catch (parseError: any) {
+          console.error('[Comparables Selection SSE] ===== OUTPUT PARSING ERROR =====')
+          console.error('[Comparables Selection SSE] Parse error:', {
+            message: parseError.message,
+            issues: parseError.issues,
+            raw_output: JSON.stringify(result.finalOutput, null, 2)
+          })
+          console.error('[Comparables Selection SSE] ===== END PARSE ERROR =====\n')
+          throw parseError
+        }
 
         send({ 
           type: 'status', 
@@ -765,7 +962,19 @@ async function handleSSERequest(request: NextRequest) {
         send({ type: 'complete', progress: 100 })
         controller.close()
       } catch (error: any) {
-        console.error('[Comparables AI Agent] SSE Error:', error)
+        console.error('[Comparables AI Agent SSE] ===== TOP LEVEL ERROR =====')
+        console.error('[Comparables AI Agent SSE] Error details:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          error_type: error.constructor.name,
+          error_keys: Object.keys(error)
+        })
+        if (error.cause) {
+          console.error('[Comparables AI Agent SSE] Error cause:', error.cause)
+        }
+        console.error('[Comparables AI Agent SSE] ===== END TOP LEVEL ERROR =====\n')
+        
         send({ type: 'error', message: error.message || 'Failed to select comparables with AI' })
         requestContext = null
         controller.close()

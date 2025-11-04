@@ -293,9 +293,14 @@ export default function NearbyListings({ listings, mainPropertyLocation, mainPro
 
 
   const ListingCard = ({ listing }: { listing: Listing }) => {
-    const imageIndex = currentImageIndex[listing.listing_id] || 0
-    const allImages = [...listing.images].slice(0, 10) // Limit to first 10 images
-    const currentImage = allImages[imageIndex] || listing.main_image_url
+    // Filter out null, undefined, and empty string images
+    const allImages = (listing.images || [])
+      .filter((img): img is string => Boolean(img && typeof img === 'string' && img.trim() !== ''))
+      .slice(0, 10) // Limit to first 10 images
+    const rawImageIndex = currentImageIndex[listing.listing_id] || 0
+    // Ensure imageIndex is within bounds
+    const imageIndex = allImages.length > 0 ? Math.min(rawImageIndex, allImages.length - 1) : 0
+    const currentImage = allImages[imageIndex] || listing.main_image_url || '/logo.png'
     const hasMultipleImages = allImages.length > 1
 
     const handleListingClick = (e: React.MouseEvent) => {
@@ -920,7 +925,8 @@ function MapView({
           })
           
           // Get the first image for the popup
-          const popupImage = listing.main_image_url || listing.images?.[0] || ''
+          const validImages = (listing.images || []).filter((img): img is string => Boolean(img && typeof img === 'string' && img.trim() !== ''))
+          const popupImage = listing.main_image_url || validImages[0] || '/logo.png'
           
           // Create properly styled InfoWindow content
           const infoWindowContent = `
