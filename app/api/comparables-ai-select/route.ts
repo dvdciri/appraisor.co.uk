@@ -18,6 +18,8 @@ const ComparablesSelectionOutputSchema = z.object({
   })).max(3).describe('Top 3 candidates with >=80% similarity, sorted by score (highest first). Stop processing buckets once you have 3 matches.')
 })
 
+//THis is just a test to see if I can push to main
+
 // Transaction type matching the client structure
 interface ComparableTransaction {
   street_group_property_id: string
@@ -570,7 +572,7 @@ async function handleRegularRequest(request: NextRequest) {
   console.log(`[Comparables Selection] Agent will process buckets sequentially until it finds ${FINAL_COMPARABLES_COUNT} comparables with >=${MIN_SIMILARITY_SCORE}% similarity`)
 
   const userMessage = user('Process buckets of comparables sequentially to find the 3 best matches with >=80% visual similarity. Start with bucket 0 (strictest criteria) and stop as soon as you have 3 matches.')
-  
+
   if (targetStreetViewUrl) {
     userMessage.content = [
       { type: 'input_text' as const, text: 'Process buckets of comparables sequentially to find the 3 best matches with >=80% visual similarity. Start with bucket 0 (strictest criteria) and stop as soon as you have 3 matches.' },
