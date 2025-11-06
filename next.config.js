@@ -14,6 +14,21 @@ const nextConfig = {
       'media.rightmove.co.uk',
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'www.appraisor.com',
+          },
+        ],
+        destination: '/',
+        permanent: true,
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig
