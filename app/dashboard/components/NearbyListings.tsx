@@ -690,8 +690,8 @@ function MapView({
   const [map, setMap] = useState<any>(null)
   const [markers, setMarkers] = useState<any[]>([])
   const [radiusCircle, setRadiusCircle] = useState<any>(null)
-  const [selectedMarker, setSelectedMarker] = useState<any>(null)
   const infoWindowRef = useRef<any>(null)
+  const selectedMarkerRef = useRef<any>(null)
 
   // Initialize map
   useEffect(() => {
@@ -831,9 +831,7 @@ function MapView({
     if (radiusCircle) {
       radiusCircle.setMap(null)
     }
-    
-    // Clear selected marker
-    setSelectedMarker(null)
+
 
     const newMarkers = listings
       .filter(listing => listing.location?.coordinates?.latitude && listing.location?.coordinates?.longitude)
@@ -866,21 +864,31 @@ function MapView({
         marker.addListener('click', () => {
           console.log('DEBUG: Marker clicked for listing:', listing.listing_id);
 
-          if (selectedMarker === marker) {
-              console.log('DEBUG: selectedMarker:', selectedMarker)
+          if (selectedMarkerRef.current === marker) {
               if (infoWindowRef?.current) {
-
                   infoWindowRef.current.close();
-
               }
-          }
+
+              marker.setIcon({
+                  url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg width="80" height="32" viewBox="0 0 80 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="2" width="76" height="28" rx="14" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+                  <rect x="0" y="0" width="80" height="32" rx="16" fill="white" opacity="0.1"/>
+                  <text x="40" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2937">${price}</text>
+                  <polygon points="36,28 40,32 44,28" fill="white"/>
+                  <polygon points="36,30 40,34 44,30" fill="#e5e7eb"/>
+                </svg>
+              `),
+                  scaledSize: new (window as any).google.maps.Size(80, 32),
+                  anchor: new (window as any).google.maps.Point(40, 32)
+              })
+              selectedMarkerRef.current = null;
+              return;
+            }
 
           if (infoWindowRef?.current) {
-
               infoWindowRef.current.close();
-
           }
-
           // Reset all markers to original color first
           newMarkers.forEach(m => {
             const markerPrice = (m as any).price
@@ -965,7 +973,7 @@ function MapView({
             
             console.log('DEBUG: InfoWindow created, opening...')
               newInfoWindow.open(map, marker);
-              setSelectedMarker(marker);
+              selectedMarkerRef.current = marker;
               onPropertySelect(listing)
               console.log('DEBUG: InfoWindow opened')
             
