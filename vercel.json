@@ -1,0 +1,13 @@
+{
+    "redirects": [
+      {
+        "source": "/:path+",
+        "has": [
+          { "type": "host", "value": "appraisor.com" },
+          { "type": "host", "value": "www.appraisor.com" }
+        ],
+        "destination": "/",
+        "statusCode": 307
+      }
+    ]
+  }
