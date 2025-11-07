@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Image from 'next/image'
@@ -13,7 +13,6 @@ import {
   Wrench, 
   Calculator 
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import InvestmentCalculator from '../components/InvestmentCalculator'
 import ComparablesAnalysis, { renderTransactionDetails } from '../components/ComparablesAnalysis'
 import GenericPanel from '../components/GenericPanel'
@@ -22,7 +21,6 @@ import MarketAnalysis from '../components/MarketAnalysis'
 import NearbyListings from '../components/NearbyListings'
 import StreetViewImage from '../components/StreetViewImage'
 import RefurbishmentEstimator from '../components/RefurbishmentEstimator'
-import Dialog from '../../components/Dialog'
 
 type Section = 'property-details' | 'market-analysis' | 'sold-comparables' | 'investment-calculator' | 'ai-refurbishment' | 'risk-assessment' | 'nearby-listings'
 
@@ -963,30 +961,8 @@ export default function DashboardV1() {
   const [copyConfirmation, setCopyConfirmation] = useState<string | null>(null)
   const [showHowItWorksDialog, setShowHowItWorksDialog] = useState(false)
   const [mapMode, setMapMode] = useState<'map' | 'street'>('map')
-  const [showAIComparablesDialog, setShowAIComparablesDialog] = useState(false)
-  const [aiComparablesResult, setAIComparablesResult] = useState<{
-    comparables: string[]
-    similarity_scores: Record<string, number>
-    brief_notes: Record<string, string>
-    context?: {
-      total_candidates_considered: number
-      relaxation_strategy: string
-      buckets_used?: string[]
-      candidates_sent_to_ai: number
-      target_comparables_count: number
-      size_tolerance_percent: number
-      min_similarity_score?: number
-    }
-  } | null>(null)
-  const [isLoadingAIComparables, setIsLoadingAIComparables] = useState(false)
-  const [aiComparablesError, setAIComparablesError] = useState<string | null>(null)
-  const [aiLoadingStatus, setAILoadingStatus] = useState<string>('')
-  const [aiLoadingProgress, setAILoadingProgress] = useState<number>(0)
-  // Animated preview while AI is selecting comparables
-  const [aiPreviewIndex, setAIPreviewIndex] = useState<number>(0)
-  const [aiPreviewList, setAIPreviewList] = useState<any[]>([])
-  const [aiPreviewVisible, setAIPreviewVisible] = useState<boolean>(true)
-  const aiFakeTimersRef = useRef<any[]>([])
+  const [isFilteringComparables, setIsFilteringComparables] = useState(false)
+  const [comparableBucketMapping, setComparableBucketMapping] = useState<Record<string, string>>({})
   const uprn = params.uprn as string
 
   // Helper functions to safely extract property data
@@ -1057,10 +1033,10 @@ export default function DashboardV1() {
         return prevIsLargeScreen
       })
     }
-    
+
     checkScreenSize()
     window.addEventListener('resize', checkScreenSize)
-    
+
     return () => window.removeEventListener('resize', checkScreenSize)
   }, []) // Empty dependency array - only run once on mount
 
@@ -1079,11 +1055,11 @@ export default function DashboardV1() {
         setLoading(true)
         setError(null)
         const response = await fetch(`/api/properties/${uprn}`)
-        
+
         if (!response.ok) {
           throw new Error('Failed to load property data')
         }
-        
+
         const data = await response.json()
         setPropertyData(data)
       } catch (err) {
@@ -1105,11 +1081,11 @@ export default function DashboardV1() {
       setLoading(true)
       setError(null)
       const response = await fetch(`/api/properties/${uprn}`)
-      
+
       if (!response.ok) {
         throw new Error('Failed to load property data')
       }
-      
+
       const data = await response.json()
       setPropertyData(data)
     } catch (err) {
@@ -1122,30 +1098,30 @@ export default function DashboardV1() {
 
   const hasSubsectionData = (subsectionId: string) => {
     switch(subsectionId) {
-      case 'ownership': 
-        return getPropertyValue('tenure.tenure_type') !== 'N/A' || 
-               getPropertyValue('ownership.company_owned') !== 'N/A' || 
-               getPropertyValue('ownership.overseas_owned') !== 'N/A' || 
+      case 'ownership':
+        return getPropertyValue('tenure.tenure_type') !== 'N/A' ||
+               getPropertyValue('ownership.company_owned') !== 'N/A' ||
+               getPropertyValue('ownership.overseas_owned') !== 'N/A' ||
                getPropertyValue('ownership.social_housing') !== 'N/A' ||
                getPropertyValue('occupancy') !== 'N/A'
-      case 'construction': 
-        return getPropertyValue('construction_materials.wall_type.value') !== 'N/A' || 
-               getPropertyValue('construction_materials.roof_type.value') !== 'N/A' || 
-               getPropertyValue('construction_materials.window_type.value') !== 'N/A' || 
-               getPropertyValue('construction_materials.floor_type.value') !== 'N/A' || 
+      case 'construction':
+        return getPropertyValue('construction_materials.wall_type.value') !== 'N/A' ||
+               getPropertyValue('construction_materials.roof_type.value') !== 'N/A' ||
+               getPropertyValue('construction_materials.window_type.value') !== 'N/A' ||
+               getPropertyValue('construction_materials.floor_type.value') !== 'N/A' ||
                getPropertyValue('listed_buildings_on_plot') !== 'N/A'
-      case 'plot': 
-        return getPropertyValue('plot.total_plot_area_square_metres') !== 'N/A' || 
-               getPropertyValue('outdoor_space.type') !== 'N/A' || 
+      case 'plot':
+        return getPropertyValue('plot.total_plot_area_square_metres') !== 'N/A' ||
+               getPropertyValue('outdoor_space.type') !== 'N/A' ||
                getPropertyValue('outdoor_space.area_square_metres') !== 'N/A'
-      case 'utilities': 
-        return getPropertyValue('utilities.mains_gas.value') !== 'N/A' || 
-               getPropertyValue('utilities.mains_fuel_type.value') !== 'N/A' || 
-               getPropertyValue('utilities.solar_power.has_solar_power') !== 'N/A' || 
+      case 'utilities':
+        return getPropertyValue('utilities.mains_gas.value') !== 'N/A' ||
+               getPropertyValue('utilities.mains_fuel_type.value') !== 'N/A' ||
+               getPropertyValue('utilities.solar_power.has_solar_power') !== 'N/A' ||
                getPropertyValue('utilities.wind_turbines.has_wind_turbines') !== 'N/A'
-      case 'energy': 
+      case 'energy':
         return propertyData?.data?.data?.attributes?.energy_performance != null
-      default: 
+      default:
         return false
     }
   }
@@ -1221,12 +1197,12 @@ export default function DashboardV1() {
 
   const handleRemoveComparable = async (transactionId: string) => {
     // Remove from selected transactions list (UI update)
-    setSelectedComparablesTransactions(prev => 
+    setSelectedComparablesTransactions(prev =>
       prev.filter(transaction => transaction.street_group_property_id !== transactionId)
     )
     // Update count
     setSelectedComparablesCount(prev => prev - 1)
-    
+
     // Persist removal to database
     try {
       // Fetch current comparables data
@@ -1235,13 +1211,13 @@ export default function DashboardV1() {
         console.error('Failed to fetch comparables data:', response.status, response.statusText)
         return
       }
-      
+
       const data = await response.json()
       const currentIds = data.selected_comparable_ids || []
-      
+
       // Remove the transactionId from the list
       const updatedIds = currentIds.filter((id: string) => id !== transactionId)
-      
+
       // Save updated list back to database
       const saveResponse = await fetch('/api/db/comparables', {
         method: 'POST',
@@ -1255,7 +1231,7 @@ export default function DashboardV1() {
           calculated_valuation: data.calculated_valuation || null
         })
       })
-      
+
       if (!saveResponse.ok) {
         console.error('Failed to save comparables data:', saveResponse.status, saveResponse.statusText)
       } else {
@@ -1267,222 +1243,112 @@ export default function DashboardV1() {
     }
   }
 
-  const handleOpenAIComparablesDialog = async () => {
-    if (!propertyData) return
-
-    const nearbyTransactions = getPropertyValue('nearby_completed_transactions') || []
-    const targetProperty = {
-      address: getPropertyValue('address.street_group_format.address_lines'),
-      postcode: getPropertyValue('address.street_group_format.postcode'),
-      propertyType: getPropertyValue('property_type.value'),
-      bedrooms: parseInt(getPropertyValue('number_of_bedrooms.value', '0')),
-      bathrooms: parseInt(getPropertyValue('number_of_bathrooms.value', '0')),
-      internalArea: parseFloat(getPropertyValue('internal_area_square_metres', '0')),
-      location: getPropertyValue('location')?.coordinates ? {
-        coordinates: {
-          latitude: parseFloat(getPropertyValue('location.coordinates.latitude', '0')),
-          longitude: parseFloat(getPropertyValue('location.coordinates.longitude', '0'))
+    const handleFilterComparables = async () => {
+        if (!propertyData) {
+            return
         }
-      } : null
-    }
-    const targetStreet = getPropertyValue('address.simplified_format.street', '')
 
-    if (!targetProperty.address || nearbyTransactions.length === 0) {
-      setAIComparablesError('Property data or transactions not available')
-      return
-    }
+        const nearbyTransactions = getPropertyValue('nearby_completed_transactions') || []
 
-    setShowAIComparablesDialog(true)
-    setIsLoadingAIComparables(true)
-    setAIComparablesResult(null)
-    setAIComparablesError(null)
-    // seed preview list (shuffle a subset for variety)
-    const shuffled = [...nearbyTransactions].sort(() => Math.random() - 0.5)
-    setAIPreviewList(shuffled.slice(0, Math.min(16, shuffled.length)))
-    setAIPreviewIndex(0)
-    // Start local fake status updates (remove server-driven statuses)
-    setAILoadingStatus(`Analysing ${nearbyTransactions.length} transactions nearby`)
-    setAILoadingProgress(10)
-    aiFakeTimersRef.current.forEach((t: any) => clearTimeout(t))
-    aiFakeTimersRef.current = [
-      setTimeout(() => { setAILoadingStatus('Selecting the best candidates'); setAILoadingProgress(30) }, 4000),
-      setTimeout(() => { setAILoadingStatus('Identifying similarities from pictures'); setAILoadingProgress(60) }, 9000),
-      setTimeout(() => { setAILoadingStatus('Putting it all together'); setAILoadingProgress(80) }, 14000),
-      setTimeout(() => { setAILoadingStatus('Picking top choices'); setAILoadingProgress(90) }, 19000),
-    ]
-    
-    try {
-      // Use fetch with POST for SSE (EventSource doesn't support POST, so we'll use fetch with streaming)
-      const response = await fetch('/api/comparables-ai-select', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-use-sse': 'true',
-        },
-        body: JSON.stringify({
-          uprn,
-          nearbyTransactions,
-          targetProperty,
-          targetStreet
-        })
-      })
+        const targetProperty = {
+            address: getPropertyValue('address.street_group_format.address_lines'),
+            postcode: getPropertyValue('address.street_group_format.postcode'),
+            propertyType: getPropertyValue('property_type.value'),
+            bedrooms: parseInt(getPropertyValue('number_of_bedrooms.value', '0')),
+            bathrooms: parseInt(getPropertyValue('number_of_bathrooms.value', '0')),
+            internalArea: parseFloat(getPropertyValue('internal_area_square_metres', '0')),
+            location: getPropertyValue('location')?.coordinates ? {
+                coordinates: {
+                    latitude: parseFloat(getPropertyValue('location.coordinates.latitude', '0')),
+                    longitude: parseFloat(getPropertyValue('location.coordinates.longitude', '0'))
+                }
+            } : null
+        }
 
-      if (!response.ok || !response.body) {
-        throw new Error('Failed to start comparables selection')
-      }
+        const targetStreet = getPropertyValue('address.simplified_format.street', '')
 
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
+        if (!targetProperty.address) {
+            throw new Error("Address not found");
+        }
 
-      while (true) {
-        const { done, value } = await reader.read()
-        
-        if (done) break
+        if (nearbyTransactions.length === 0) {
+            alert("No Nearby Transactions found.");
+            return;
+        }
 
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
+        setIsFilteringComparables(true)
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6))
-              
-              if (data.type === 'status') {
-                // Ignore backend statuses; we show local fake statuses instead
-              } else if (data.type === 'result') {
-                // Show results
-                setAIComparablesResult(data.data)
-                setIsLoadingAIComparables(false)
-                aiFakeTimersRef.current.forEach((t: any) => clearTimeout(t))
-                aiFakeTimersRef.current = []
-                setAILoadingStatus('')
-                setAILoadingProgress(0)
-              } else if (data.type === 'complete') {
-                setIsLoadingAIComparables(false)
-                aiFakeTimersRef.current.forEach((t: any) => clearTimeout(t))
-                aiFakeTimersRef.current = []
-                setAILoadingStatus('')
-                setAILoadingProgress(0)
-              } else if (data.type === 'error') {
-                setAIComparablesError(data.message || 'Failed to select comparables')
-                setIsLoadingAIComparables(false)
-                setAILoadingStatus('')
-                setAILoadingProgress(0)
-                aiFakeTimersRef.current.forEach((t: any) => clearTimeout(t))
-                aiFakeTimersRef.current = []
-              }
-            } catch (e) {
-              console.error('Error parsing SSE data:', e)
+        try {
+            const response = await fetch('/api/comparables-filter', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    uprn,
+                    nearbyTransactions,
+                    targetProperty,
+                    targetStreet,
+                })
+            })
+
+            const result = await response.json()
+
+            if (!result.success) {
+                throw new Error('Failed to filter comparables: ' + result.error)
             }
-          }
+
+            const buckets = result.data.buckets || []
+            let selectedIds: string[] = []
+            const bucketMapping: Record<string, string> = {}
+
+            console.log('[Filter] Total buckets:', buckets.length)
+
+            for (const bucket of buckets) {
+                if (bucket.comparables && bucket.comparables.length > 0) {
+                    console.log(`[Filter] Bucket "${bucket.relaxationStrategy}": ${bucket.comparables.length} comparables`)
+                    for (const comp of bucket.comparables) {
+                        console.log(`[Filter] Adding ID: ${comp.street_group_property_id}`)
+                        selectedIds.push(comp.street_group_property_id)
+                        // Map property ID to bucket name
+                        bucketMapping[comp.street_group_property_id] = bucket.relaxationStrategy
+                    }
+                }
+            }
+
+            console.log('[Filter] All selected IDs:', selectedIds)
+            console.log('[Filter] Unique IDs:', [...new Set(selectedIds)].length, 'of', selectedIds.length)
+
+            if (selectedIds.length === 0) {
+                console.warn('No comparables found in any bucket')
+                return
+            }
+
+            const saveResponse = await fetch('/api/db/comparables', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    uprn,
+                    selected_comparable_ids: selectedIds
+                })
+            })
+
+            if (saveResponse.ok) {
+                // Save the bucket mapping
+                setComparableBucketMapping(bucketMapping)
+                setComparablesRefreshTrigger(prev => prev + 1)
+                console.log('Successfully auto-selected', selectedIds.length, 'comparables')
+            }
+
+            setIsFilteringComparables(false)
+        } catch (error: any) {
+            console.error('Error filtering data:', error)
+            setIsFilteringComparables(false)
         }
-      }
-    } catch (error: any) {
-      console.error('Error calling AI comparables selection:', error)
-      setAIComparablesError(error.message || 'Failed to select comparables with AI')
-      setIsLoadingAIComparables(false)
-      setAILoadingStatus('')
-      setAILoadingProgress(0)
     }
-  }
 
-  // Rotate preview while loading with slower fade out/in
-  useEffect(() => {
-    if (!showAIComparablesDialog || !isLoadingAIComparables || aiPreviewList.length === 0) return
-    let switchTimeout: any
-    const id = setInterval(() => {
-      setAIPreviewVisible(false)
-      switchTimeout = setTimeout(() => {
-        setAIPreviewIndex(prev => (prev + 1) % aiPreviewList.length)
-        setAIPreviewVisible(true)
-      }, 450) // slower fade-out before switching
-    }, 1400)
-    return () => {
-      clearInterval(id)
-      if (switchTimeout) clearTimeout(switchTimeout)
-    }
-  }, [showAIComparablesDialog, isLoadingAIComparables, aiPreviewList.length])
-
-  const handleAcceptAIComparables = async () => {
-    if (aiComparablesResult && aiComparablesResult.comparables.length > 0) {
-      // Save selected comparables to database
-      try {
-        const response = await fetch('/api/db/comparables', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            uprn,
-            selected_comparable_ids: aiComparablesResult.comparables
-          })
-        })
-
-        if (response.ok) {
-          // Trigger refresh
-          setComparablesRefreshTrigger(prev => prev + 1)
-        }
-      } catch (error) {
-        console.error('Error saving comparables:', error)
-      }
-
-      setShowAIComparablesDialog(false)
-      setAIComparablesResult(null)
-      setAIComparablesError(null)
-    }
-  }
-
-  const handleRetryAIComparables = () => {
-    setAIComparablesResult(null)
-    setAIComparablesError(null)
-    handleOpenAIComparablesDialog()
-  }
-
-  // Debug function to simulate loading without API call
-  const handleDebugAILoading = () => {
-    const nearbyTransactions = getPropertyValue('nearby_completed_transactions') || []
-    // Reset all states
-    setShowAIComparablesDialog(true)
-    setIsLoadingAIComparables(true)
-    setAIComparablesResult(null)
-    setAIComparablesError(null)
-    setAILoadingStatus(`Analysing ${nearbyTransactions.length} transactions nearby`)
-    setAILoadingProgress(10)
-    // seed preview list for debug
-    const shuffled = [...nearbyTransactions].sort(() => Math.random() - 0.5)
-    setAIPreviewList(shuffled.slice(0, Math.min(16, shuffled.length)))
-    setAIPreviewIndex(0)
-
-    // Progress simulation
-    const progressUpdates = [
-      { delay: 4000, status: 'Selecting the best candidates', progress: 30 },
-      { delay: 9000, status: 'Identifying similarities from pictures', progress: 60 },
-      { delay: 14000, status: 'Putting it all together', progress: 80 },
-      { delay: 19000, status: 'Picking top choices', progress: 90 },
-      { delay: 23000, status: 'Finalizing results', progress: 100 }
-    ]
-
-    const progressTimers = progressUpdates.map(({ delay, status, progress }) => 
-      setTimeout(() => {
-        setAILoadingStatus(status)
-        setAILoadingProgress(progress)
-      }, delay)
-    )
-
-    // Simulate completion after progress
-    setTimeout(() => {
-      progressTimers.forEach(timer => clearTimeout(timer))
-      setIsLoadingAIComparables(false)
-      setAILoadingStatus('')
-      setAILoadingProgress(0)
-      // Set a mock result or keep loading state
-      // For now, just stop loading to show the empty state
-    }, 4000)
-  }
-
-  // Show loading while checking authentication
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1511,19 +1377,19 @@ export default function DashboardV1() {
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Google Maps Static Background */}
-      <div 
+      <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat blur-sm"
         style={{
           backgroundImage: `url(https://maps.googleapis.com/maps/api/staticmap?center=${getMapCenter()}&zoom=12&size=3840x2160&maptype=roadmap&scale=2&style=feature:all|element:geometry|color:0x2d1b69&style=feature:water|element:geometry|color:0x1a0b3d&style=feature:road|element:geometry.fill|color:0x4c1d95&style=feature:all|element:labels.text.fill|color:0xffffff&style=feature:all|element:labels.text.stroke|color:0x000000&style=feature:landscape|element:geometry|color:0x1a0b3d&style=feature:poi|element:geometry|color:0x2d1b69&style=feature:transit|element:geometry|color:0x1a0b3d&style=feature:administrative|element:geometry|color:0x4c1d95&style=feature:administrative.country|element:labels.text.fill|color:0xffffff&style=feature:administrative.country|element:labels.text.stroke|color:0x000000&style=feature:administrative.land_parcel|element:labels.text.fill|color:0xffffff&style=feature:administrative.land_parcel|element:labels.text.stroke|color:0x000000&style=feature:landscape.natural|element:geometry|color:0x1a0b3d&style=feature:poi.business|element:geometry|color:0x2d1b69&style=feature:poi.park|element:geometry|color:0x2d1b69&style=feature:poi.park|element:labels.text.fill|color:0xffffff&style=feature:poi.park|element:labels.text.stroke|color:0x000000&style=feature:road.arterial|element:geometry|color:0x4c1d95&style=feature:road.highway|element:geometry|color:0x4c1d95&style=feature:road.highway.controlled_access|element:geometry|color:0x4c1d95&style=feature:road.local|element:labels.text.fill|color:0xffffff&style=feature:road.local|element:labels.text.stroke|color:0x000000&style=feature:transit.line|element:geometry|color:0x1a0b3d&style=feature:transit.station|element:geometry|color:0x2d1b69&style=feature:water|element:labels.text.fill|color:0xffffff&style=feature:water|element:labels.text.stroke|color:0x000000&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY})`,
           imageRendering: 'crisp-edges'
         }}
       />
-      
+
       {/* Nebula Core (more pronounced) */}
       <div className="absolute inset-0 bg-gradient-radial from-purple-700/60 via-purple-900/30 to-transparent" />
-      
+
       {/* Swirling Nebula Effect (boosted) */}
-      <div 
+      <div
         className="absolute inset-0 opacity-80"
         style={{
           background: `
@@ -1534,9 +1400,9 @@ export default function DashboardV1() {
           `
         }}
       />
-      
+
       {/* Animated Cosmic Dust (slightly brighter) */}
-      <div 
+      <div
         className="absolute inset-0 opacity-40 animate-pulse"
         style={{
           background: `
@@ -1550,9 +1416,9 @@ export default function DashboardV1() {
           backgroundSize: '200px 100px'
         }}
       />
-      
+
       {/* Dark Nebula Clouds */}
-      <div 
+      <div
         className="absolute inset-0 opacity-40"
         style={{
           background: `
@@ -1562,15 +1428,15 @@ export default function DashboardV1() {
           `
         }}
       />
-      
+
       {/* Cosmic Glow Effects (increased radius/intensity slightly) */}
       <div className="absolute top-1/4 left-1/4 w-[28rem] h-[28rem] bg-gradient-radial from-purple-500/30 via-purple-600/15 to-transparent animate-pulse" />
       <div className="absolute top-3/4 right-1/4 w-[24rem] h-[24rem] bg-gradient-radial from-blue-500/22 via-blue-600/10 to-transparent animate-pulse" style={{ animationDelay: '1s' }} />
       <div className="absolute bottom-1/4 left-1/3 w-[22rem] h-[22rem] bg-gradient-radial from-pink-500/18 via-pink-600/8 to-transparent animate-pulse" style={{ animationDelay: '2s' }} />
-      
+
       {/* Simple Dark Overlay */}
       <div className="absolute inset-0 bg-black/60" />
-      
+
       <div className="relative z-10 min-h-screen">
         {/* Floating Top Menu Bar - Full width above sidebar */}
         <header className="fixed top-0 left-0 right-0 z-[999] p-6">
@@ -1587,7 +1453,7 @@ export default function DashboardV1() {
                   </svg>
                   <span className="text-sm font-medium">Back to Search</span>
                 </button>
-                
+
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden">
                     <Image
@@ -1601,7 +1467,7 @@ export default function DashboardV1() {
                   <span className="text-xl font-bold text-white">Appraisor</span>
                 </div>
               </div>
-              
+
               {/* Right side - Credits and User menu */}
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2">
@@ -1612,7 +1478,7 @@ export default function DashboardV1() {
                   </div>
                   <span className="text-white font-medium text-sm">30 Credits available</span>
                 </div>
-                
+
                 <WorkingUserMenu user={session.user || { name: 'User', email: 'user@example.com' }} />
               </div>
             </div>
@@ -1640,8 +1506,8 @@ export default function DashboardV1() {
             <div className="w-full max-w-7xl mx-auto">
               <div className="flex gap-8 w-full">
                 {/* Fixed Sidebar Navigation */}
-                <aside 
-                  className="fixed w-64 flex-shrink-0 flex-grow-0 z-20" 
+                <aside
+                  className="fixed w-64 flex-shrink-0 flex-grow-0 z-20"
                   style={{ width: '256px' }}
                   onWheel={(e) => {
                     // Forward scroll events to the main content area
@@ -1725,13 +1591,13 @@ export default function DashboardV1() {
                 {/* Main Content */}
                 <div className="flex-1 min-w-0 w-full" style={{ width: 'calc(100% - 256px - 2rem)' }}>
                   {/* Property Summary Header */}
-                  <PropertySummary 
+                  <PropertySummary
                     propertyData={propertyData}
                     getPropertyValue={getPropertyValue}
                     copyToClipboard={copyToClipboard}
                     formatArea={formatArea}
                   />
-                  
+
                   <div className="bg-black/20 backdrop-blur-xl border border-gray-500/30 rounded-2xl shadow-2xl overflow-hidden w-full min-h-[600px]" style={{ width: '100%', minWidth: '600px' }}>
                 {loading ? (
                   /* Loading Spinner */
@@ -1757,7 +1623,7 @@ export default function DashboardV1() {
                           <div className="h-8 bg-gray-700/30 rounded w-24 animate-pulse"></div>
                         </div>
                       </div>
-                      
+
                       {/* Maps Skeleton */}
                       <div className="space-y-4">
                         <div className="h-6 bg-gray-700/30 rounded w-32 animate-pulse"></div>
@@ -1766,7 +1632,7 @@ export default function DashboardV1() {
                           <div className="h-64 bg-gray-700/30 rounded-lg animate-pulse"></div>
                         </div>
                       </div>
-                      
+
                       {/* Local Area Skeleton */}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div className="h-16 bg-gray-700/30 rounded-lg animate-pulse"></div>
@@ -1815,7 +1681,7 @@ export default function DashboardV1() {
                           })()}
                           <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                         </div>
-                
+
                 <div className="space-y-8">
                   {/* Map & Property Info Section */}
                   <div className="mb-12">
@@ -1845,14 +1711,14 @@ export default function DashboardV1() {
                             Street View
                           </button>
                         </div>
-                        
+
                         {/* Square Map Container */}
                         <div className="relative w-full aspect-square rounded-lg overflow-hidden border border-gray-500/30">
                           <iframe
-                            src={mapMode === 'map' 
+                            src={mapMode === 'map'
                               ? `https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(getPropertyValue('address.street_group_format.address_lines') + ', ' + getPropertyValue('address.street_group_format.postcode'))}&zoom=15&maptype=roadmap`
                               : getStreetViewEmbedUrl(
-                                  parseFloat(getPropertyValue('location.coordinates.latitude', '0')), 
+                                  parseFloat(getPropertyValue('location.coordinates.latitude', '0')),
                                   parseFloat(getPropertyValue('location.coordinates.longitude', '0'))
                                 )
                             }
@@ -1881,7 +1747,7 @@ export default function DashboardV1() {
                               const aIndex = order.indexOf(a.id)
                               const bIndex = order.indexOf(b.id)
                               if (aIndex !== bIndex) return aIndex - bIndex
-                              
+
                               // Then sort by data availability
                               const aHasData = hasSubsectionData(a.id)
                               const bHasData = hasSubsectionData(b.id)
@@ -1987,7 +1853,7 @@ export default function DashboardV1() {
                                         },
                                         body: JSON.stringify({ uprn }),
                                       })
-                                      
+
                                       if (response.ok) {
                                         // Reload the page to reset the calculator
                                         window.location.reload()
@@ -2052,7 +1918,8 @@ export default function DashboardV1() {
                                 onRemoveComparable={handleRemoveComparable}
                                 selectedPanelOpen={selectedComparablesPanelOpen}
                                 refreshTrigger={comparablesRefreshTrigger}
-                                onOpenAIComparablesDialog={handleOpenAIComparablesDialog}
+                                filterComparables={handleFilterComparables}
+                                isFilteringComparables={isFilteringComparables}
                               />
                             ) : (
                               <div className="text-center py-8 text-gray-400">
@@ -2087,7 +1954,7 @@ export default function DashboardV1() {
                               <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                             </div>
                             {propertyData ? (
-                              <NearbyListings 
+                              <NearbyListings
                                 listings={getPropertyValue('nearby_listings') || { sale_listings: [], rental_listings: [] }}
                                 mainPropertyLocation={getPropertyValue('location')?.coordinates}
                                 mainPropertyPostcode={getPropertyValue('address.street_group_format.postcode')}
@@ -2111,7 +1978,7 @@ export default function DashboardV1() {
                               })()}
                               <h1 className="text-2xl font-bold text-gray-100">{sections.find(s => s.id === activeSection)?.label}</h1>
                             </div>
-                            <RefurbishmentEstimator 
+                            <RefurbishmentEstimator
                               uprn={uprn}
                               onDataUpdate={() => {
                                 // Trigger a refresh of calculator data if needed
@@ -2148,7 +2015,7 @@ export default function DashboardV1() {
             </div>
           </div>
         </main>
-        
+
         {/* Generic Right Panel for Property Info */}
         <GenericPanel
             isOpen={activeSection === 'property-details' && rightPanelOpen}
@@ -2193,7 +2060,7 @@ export default function DashboardV1() {
             {selectedComparablesTransactions.length > 0 ? (
               selectedComparablesTransactions.map((transaction) => (
                 <div key={transaction.street_group_property_id} className="relative">
-                  <div 
+                  <div
                     onClick={() => handleTransactionSelect(transaction)}
                     className="bg-black/20 border border-gray-500/30 rounded-lg p-4 transition-all duration-200 cursor-pointer hover:bg-gray-700/40 hover:border-gray-500/50"
                   >
@@ -2208,7 +2075,7 @@ export default function DashboardV1() {
                           className="w-20 h-20 object-cover rounded-lg"
                         />
                       </div>
-                      
+
                       {/* Property Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-2">
@@ -2231,7 +2098,7 @@ export default function DashboardV1() {
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="flex justify-between items-center text-xs text-gray-400">
                           <div className="flex gap-4">
                             <span>{transaction.number_of_bedrooms || 0} bed</span>
@@ -2295,7 +2162,7 @@ export default function DashboardV1() {
         {/* How It Works Dialog */}
         {showHowItWorksDialog && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-            <div 
+            <div
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
               onClick={() => setShowHowItWorksDialog(false)}
             />
@@ -2332,252 +2199,6 @@ export default function DashboardV1() {
             </div>
           </div>
         )}
-
-        {/* AI Comparables Selection Dialog */}
-        <Dialog
-          isOpen={showAIComparablesDialog}
-          onClose={() => {
-            setShowAIComparablesDialog(false)
-            setAIComparablesResult(null)
-            setAIComparablesError(null)
-            setAILoadingStatus('')
-            setAILoadingProgress(0)
-            setAIPreviewList([])
-            setAIPreviewIndex(0)
-            aiFakeTimersRef.current.forEach((t: any) => clearTimeout(t))
-            aiFakeTimersRef.current = []
-          }}
-          title="AI Comparables Selection"
-          maxWidth="xl"
-        >
-          {/* Debug Button - visible when dialog is open and not loading/showing results */}
-          <div className="absolute top-4 right-16 z-10">
-            {!isLoadingAIComparables && !aiComparablesResult && !aiComparablesError && (
-              <button
-                onClick={handleDebugAILoading}
-                className="text-xs text-gray-400 hover:text-gray-300 px-2 py-1 rounded bg-gray-700/50 hover:bg-gray-700 transition-colors"
-                title="Debug: Simulate loading state"
-              >
-                🔧 Debug
-              </button>
-            )}
-          </div>
-          {isLoadingAIComparables ? (
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-500/30 border-t-purple-500 mb-6"></div>
-              <p className="text-gray-200 text-xl font-medium text-center mb-6">
-                Our AI agent is finding the best comparables for your property
-              </p>
-
-              {/* Status Text (no progress bar) - moved above preview and larger */}
-              <div className="w-full max-w-xl mb-4">
-                {aiLoadingStatus && (
-                  <p className="text-center text-gray-200 text-lg font-medium">{aiLoadingStatus}</p>
-                )}
-              </div>
-
-              {/* Cycling Comparable Preview */}
-              {aiPreviewList.length > 0 && (
-                <div className="w-full max-w-xl mb-6">
-                  {(() => {
-                    const t = aiPreviewList[aiPreviewIndex]
-                    return (
-                      <div key={t?.street_group_property_id || aiPreviewIndex} className={`bg-black/20 border border-gray-600/30 rounded-xl p-4 transition-opacity duration-700 ease-in-out ${aiPreviewVisible ? 'opacity-100' : 'opacity-0'}`}>
-                        <div className="flex gap-4 items-center">
-                          <div className="flex-shrink-0">
-                            <StreetViewImage
-                              address={t?.address?.street_group_format?.address_lines || ''}
-                              postcode={t?.address?.street_group_format?.postcode || ''}
-                              latitude={t?.location?.coordinates?.latitude}
-                              longitude={t?.location?.coordinates?.longitude}
-                              className="w-20 h-20 object-cover rounded-lg"
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start mb-1">
-                              <div className="truncate pr-3">
-                                <div className="text-sm font-medium text-gray-100 truncate">{t?.address?.street_group_format?.address_lines || 'Address not available'}</div>
-                                <div className="text-xs text-gray-400 truncate">{t?.address?.street_group_format?.postcode || ''}</div>
-                              </div>
-                              <div className="text-right ml-2">
-                                <div className="text-sm font-semibold text-white">
-                                  {t?.price ? new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(t.price) : '—'}
-                                </div>
-                                <div className="text-[10px] text-gray-400">{t?.transaction_date ? new Date(t.transaction_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}</div>
-                              </div>
-                            </div>
-                            <div className="flex justify-between items-center text-xs text-gray-400">
-                              <div className="flex gap-4">
-                                <span>{t?.number_of_bedrooms || 0} bed</span>
-                                <span>{t?.number_of_bathrooms || 0} bath</span>
-                                <span>{t?.property_type || 'Unknown'}</span>
-                                <span>{t?.internal_area_square_metres || 0}m²</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {Array.from({ length: 3 }).map((_, i) => {
-                                  const activeDots = Math.max(1, Math.ceil((aiLoadingProgress || 1) / 33))
-                                  const active = i < activeDots
-                                  return (
-                                    <span key={i} className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-gradient-to-r from-purple-400 to-pink-400' : 'bg-gray-600'}`}></span>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
-            </div>
-          ) : aiComparablesError ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="text-4xl mb-4">⚠️</div>
-              <p className="text-gray-300 text-lg mb-2">Error</p>
-              <p className="text-gray-400 text-sm mb-6">{aiComparablesError}</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleRetryAIComparables}
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-lg shadow-lg hover:shadow-purple-500/25 transition-all duration-200 text-sm font-medium"
-                >
-                  Retry
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAIComparablesDialog(false)
-                    setAIComparablesError(null)
-                  }}
-                  className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-500 transition-all duration-200 text-sm font-medium"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          ) : aiComparablesResult ? (
-            <div className="space-y-6">
-              {/* Result Summary */}
-              {aiComparablesResult.context && (
-                <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-lg p-4">
-                  <h4 className="text-sm font-semibold text-gray-200 mb-2">Result Summary</h4>
-                  <p className="text-sm text-gray-300 leading-relaxed">
-                    Analysed <span className="font-semibold text-gray-100">{aiComparablesResult.context.total_candidates_considered}</span> nearby transactions
-                    {' '}matching the property type, size (±{aiComparablesResult.context.size_tolerance_percent}%), bedrooms, and bathrooms.
-                    {' '}Selected <span className="font-semibold text-gray-100">{aiComparablesResult.comparables.length}</span> top matches with high visual similarity.
-                  </p>
-                </div>
-              )}
-
-              {/* Selected Comparables */}
-              <div>
-                <h4 className="text-lg font-semibold text-gray-100 mb-4">
-                  Selected Comparables ({aiComparablesResult.comparables.length})
-                </h4>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {aiComparablesResult.comparables.map(propertyId => {
-                    const nearbyTransactions = getPropertyValue('nearby_completed_transactions') || []
-                    const transaction = nearbyTransactions.find((t: any) => t.street_group_property_id === propertyId)
-                    if (!transaction) return null
-                    const similarityScore = aiComparablesResult.similarity_scores?.[propertyId]
-                    const briefNotes = aiComparablesResult.brief_notes?.[propertyId]
-                    return (
-                      <div key={transaction.street_group_property_id} className="bg-black/20 border border-gray-500/30 rounded-lg p-4">
-                        <div className="flex gap-4">
-                          {/* Street View Image */}
-                          <div className="flex-shrink-0">
-                            <StreetViewImage
-                              address={transaction.address?.street_group_format?.address_lines || ''}
-                              postcode={transaction.address?.street_group_format?.postcode || ''}
-                              latitude={transaction.location?.coordinates?.latitude}
-                              longitude={transaction.location?.coordinates?.longitude}
-                              className="w-20 h-20 object-cover rounded-lg"
-                            />
-                          </div>
-                          
-                          {/* Property Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start mb-2">
-                              <div className="flex-1">
-                                <h4 className="text-sm font-medium text-gray-100 mb-1">
-                                  {transaction.address?.street_group_format?.address_lines || 'Address not available'}
-                                </h4>
-                                <p className="text-xs text-gray-400">
-                                  {transaction.address?.street_group_format?.postcode || 'Postcode not available'}
-                                </p>
-                              </div>
-                              <div className="text-right ml-4">
-                                <div className="text-lg font-bold text-white">
-                                  {new Intl.NumberFormat('en-GB', {
-                                    style: 'currency',
-                                    currency: 'GBP',
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 0
-                                  }).format(transaction.price)}
-                                </div>
-                                {similarityScore !== undefined && (
-                                  <div className="mt-1">
-                                    <span className="text-xs text-gray-400">Similarity:</span>
-                                    <span className={`text-xs font-semibold ml-1 ${
-                                      similarityScore >= 80 ? 'text-green-400' :
-                                      similarityScore >= 60 ? 'text-yellow-400' :
-                                      'text-orange-400'
-                                    }`}>
-                                      {similarityScore}%
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="flex justify-between items-center text-xs text-gray-400 mb-2">
-                              <div className="flex gap-4">
-                                <span>{transaction.number_of_bedrooms || 0} bed</span>
-                                <span>{transaction.number_of_bathrooms || 0} bath</span>
-                                <span>{transaction.property_type || 'Unknown'}</span>
-                                <span>{transaction.internal_area_square_metres || 0}m²</span>
-                              </div>
-                              <div className="text-right">
-                                <div>{new Date(transaction.transaction_date).toLocaleDateString('en-GB', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric'
-                                })}</div>
-                                <div>{transaction.distance_in_metres < 100 ? `${transaction.distance_in_metres}m` : `${(transaction.distance_in_metres / 1000).toFixed(1)}km`}</div>
-                              </div>
-                            </div>
-
-                            {/* Brief Notes */}
-                            {briefNotes && (
-                              <div className="mt-2 pt-2 border-t border-gray-600/30">
-                                <p className="text-xs text-gray-300 italic">{briefNotes}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3 justify-end pt-4 border-t border-gray-700">
-                <button
-                  onClick={handleRetryAIComparables}
-                  className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-500 transition-all duration-200 text-sm font-medium"
-                >
-                  Retry
-                </button>
-                <button
-                  onClick={handleAcceptAIComparables}
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-lg shadow-lg hover:shadow-purple-500/25 transition-all duration-200 text-sm font-medium"
-                >
-                  Accept comparables
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </Dialog>
 
       </div>
     </div>

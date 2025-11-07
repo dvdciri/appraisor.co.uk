@@ -137,7 +137,8 @@ interface ComparablesAnalysisProps {
   onRemoveComparable?: (transactionId: string) => void
   selectedPanelOpen?: boolean
   refreshTrigger?: number
-  onOpenAIComparablesDialog?: () => void
+  filterComparables?: () => void
+  isFilteringComparables?: boolean
 }
 
 // Loading Skeleton Component
@@ -817,9 +818,9 @@ function ValuationDisplay({
 }
 
 // Main Component
-export default function ComparablesAnalysis({ 
-  uprn, 
-  nearbyTransactions, 
+export default function ComparablesAnalysis({
+  uprn,
+  nearbyTransactions,
   subjectPropertySqm,
   subjectPropertyStreet,
   subjectPropertyData,
@@ -830,11 +831,13 @@ export default function ComparablesAnalysis({
   onRemoveComparable,
   selectedPanelOpen = false,
   refreshTrigger,
-  onOpenAIComparablesDialog
+  filterComparables,
+  isFilteringComparables = false
 }: ComparablesAnalysisProps) {
   // State
   const [selectedComparableIds, setSelectedComparableIds] = useState<string[]>([])
   const [valuationStrategy, setValuationStrategy] = useState<'average' | 'price_per_sqm'>('average')
+  const [filteringProgress, setFilteringProgress] = useState(0)
   const [filters, setFilters] = useState<Filters>({
     bedrooms: 'Any',
     bathrooms: 'Any',
@@ -847,6 +850,35 @@ export default function ComparablesAnalysis({
   const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false)
   const [isLoadingValuation, setIsLoadingValuation] = useState(false)
   const [hasUserInteracted, setHasUserInteracted] = useState(false)
+
+  // Animate filtering progress
+  useEffect(() => {
+    if (isFilteringComparables) {
+      // Reset to 0 when filtering starts
+      setFilteringProgress(0)
+
+      // Gradually increase progress to 95%
+      const interval = setInterval(() => {
+        setFilteringProgress(prev => {
+          if (prev >= 95) return 95
+          // Increase by random amount between 5-15% for more natural feel
+          return Math.min(prev + Math.random() * 10 + 5, 95)
+        })
+      }, 100) // Update every 100ms
+
+      return () => clearInterval(interval)
+    } else {
+      // When filtering completes, set to 100% then reset after animation
+      setFilteringProgress(prev => {
+        if (prev > 0) {
+          // Complete to 100%
+          setTimeout(() => setFilteringProgress(0), 300)
+          return 100
+        }
+        return 0
+      })
+    }
+  }, [isFilteringComparables])
 
   // Group transactions by property instead of deduplicating
   const groupedProperties = useMemo(() => {
@@ -1248,11 +1280,11 @@ export default function ComparablesAnalysis({
     setSelectedComparableIds([])
   }, [])
 
-  const handleAISelectComparables = useCallback(() => {
-    if (onOpenAIComparablesDialog) {
-      onOpenAIComparablesDialog()
+  const handleFilterComparables = useCallback(() => {
+    if (filterComparables) {
+      filterComparables()
     }
-  }, [onOpenAIComparablesDialog])
+  }, [filterComparables])
 
 
 
@@ -1399,24 +1431,37 @@ export default function ComparablesAnalysis({
             </h3>
             {selectedProperties.length === 0 ? (
               <div className="text-center py-8 text-gray-400">
-                <p className="mb-4">Selected comparables from the list below will show here</p>
-                <button
-                  onClick={handleAISelectComparables}
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg shadow-lg hover:shadow-purple-500/25 transition-all duration-200 text-sm font-medium inline-flex items-center gap-2"
-                >
-                    <svg
-                      className="w-4 h-4 text-white drop-shadow"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      aria-hidden="true"
+                {isFilteringComparables ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-center gap-3">
+                      <svg className="animate-spin h-5 w-5 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span className="text-gray-300">Filtering comparables...</span>
+                    </div>
+                    <div className="w-48 mx-auto bg-gray-700 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full transition-all duration-300 ease-out"
+                        style={{width: `${filteringProgress}%`}}
+                      ></div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="mb-4">Selected comparables from the list below will show here</p>
+                    <button
+                      onClick={handleFilterComparables}
+                      disabled={isFilteringComparables}
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg shadow-lg hover:shadow-purple-500/25 transition-all duration-200 text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <path d="M12 2l1.8 4.6L18 8.4l-4.2 1.8L12 15l-1.8-4.8L6 8.4l4.2-1.8L12 2z" fill="currentColor" opacity="0.9"/>
-                      <path d="M19 11l1 2.6L23 14l-3 1.2L19 18l-1-2.8L15 14l3-0.4L19 11z" fill="currentColor" opacity="0.7"/>
-                      <path d="M6 12l0.9 2.2L9 15l-2.1 0.8L6 18l-0.9-2.2L3 15l2.1-0.2L6 12z" fill="currentColor" opacity="0.7"/>
-                    </svg>
-                    Auto-select comparables with AI
-                </button>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                      </svg>
+                      Auto-filter comparables
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
