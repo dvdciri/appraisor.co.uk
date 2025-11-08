@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     email VARCHAR(255) UNIQUE NOT NULL,
     is_first_n_subscriber BOOLEAN DEFAULT FALSE,
     sendfox_contact_id VARCHAR(255) NULL, -- Store SendFox contact ID for reference
+    source VARCHAR(50) DEFAULT 'unknown', -- Track where the subscriber came from
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -14,6 +15,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_subscriptions_email ON subscriptions(email);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_created_at ON subscriptions(created_at);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_source ON subscriptions(source);
 
 -- Function to update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 
-export default function LandingPage() {
+function LandingPageContent() {
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [source, setSource] = useState<string>('unknown')
   const [subscriberCount, setSubscriberCount] = useState<{
     subscriber_count: number
     max_free_spots: number
@@ -25,6 +28,14 @@ export default function LandingPage() {
   const emailInputRef = useRef<HTMLInputElement | null>(null)
   const sectionTitleRefs = useRef<{ [key: string]: HTMLElement | null }>({})
   const featuresHeadingRef = useRef<HTMLHeadingElement | null>(null)
+
+  // Read source parameter from URL on component mount
+  useEffect(() => {
+    const sourceParam = searchParams.get('source')
+    if (sourceParam) {
+      setSource(sourceParam)
+    }
+  }, [searchParams])
 
   // Fetch subscriber count on component mount
   useEffect(() => {
@@ -122,7 +133,7 @@ export default function LandingPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), source }),
       })
       
       const data = await response.json()
@@ -931,5 +942,13 @@ export default function LandingPage() {
         </footer>
       </div>
     </div>
+  )
+}
+
+export default function LandingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-black" />}>
+      <LandingPageContent />
+    </Suspense>
   )
 }

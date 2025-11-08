@@ -5,10 +5,22 @@ import { query } from '@/lib/db/client'
 // Email validation regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Allowed source values
+const ALLOWED_SOURCES = ['facebook', 'instagram', 'prosperity', 'linkedin']
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email } = body
+    const { email, source } = body
+    
+    // Validate and normalize source
+    let normalizedSource = 'unknown'
+    if (source && typeof source === 'string') {
+      const sourceLower = source.toLowerCase().trim()
+      if (ALLOWED_SOURCES.includes(sourceLower)) {
+        normalizedSource = sourceLower
+      }
+    }
 
     // Validate email format
     if (!email || typeof email !== 'string') {
@@ -109,8 +121,8 @@ export async function POST(request: NextRequest) {
     // Save subscription to our database
     try {
       await query(
-        'INSERT INTO subscriptions (email, is_first_n_subscriber, sendfox_contact_id) VALUES ($1, $2, $3) ON CONFLICT (email) DO NOTHING RETURNING id',
-        [email.toLowerCase().trim(), isFirstNSubscriber, sendFoxData.id || null]
+        'INSERT INTO subscriptions (email, is_first_n_subscriber, sendfox_contact_id, source) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING RETURNING id',
+        [email.toLowerCase().trim(), isFirstNSubscriber, sendFoxData.id || null, normalizedSource]
       )
     } catch (dbError) {
       console.error('Error saving subscription to database:', dbError)
