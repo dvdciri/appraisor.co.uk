@@ -112,6 +112,24 @@ export async function initializeDatabase(): Promise<void> {
       console.error('Error creating subscriptions table:', error)
     }
     
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS user_tabs (
+            user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+            tab_id VARCHAR(255) NOT NULL,
+            title VARCHAR(255) NOT NULL DEFAULT 'Search',
+            property_uprn VARCHAR(50) NULL,
+            is_active BOOLEAN NOT NULL DEFAULT FALSE,
+            last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            PRIMARY KEY (user_id, tab_id)
+        )
+      `)
+      console.log('Created/verified user_tabs table')
+    } catch (error) {
+      console.error('Error creating user_tabs table:', error)
+    }
+    
     // Create indexes separately
     try {
       await query('CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id)')
@@ -126,6 +144,9 @@ export async function initializeDatabase(): Promise<void> {
       await query('CREATE INDEX IF NOT EXISTS idx_comparables_data_uprn ON comparables_data(uprn)')
       await query('CREATE INDEX IF NOT EXISTS idx_subscriptions_email ON subscriptions(email)')
       await query('CREATE INDEX IF NOT EXISTS idx_subscriptions_created_at ON subscriptions(created_at)')
+      await query('CREATE INDEX IF NOT EXISTS idx_user_tabs_user_id ON user_tabs(user_id)')
+      await query('CREATE INDEX IF NOT EXISTS idx_user_tabs_user_active ON user_tabs(user_id, is_active)')
+      await query('CREATE INDEX IF NOT EXISTS idx_user_tabs_tab_id ON user_tabs(tab_id)')
       console.log('Created/verified indexes')
     } catch (error) {
       console.error('Error creating indexes:', error)
@@ -146,10 +167,10 @@ export async function checkDatabaseHealth(): Promise<boolean> {
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
-      AND table_name IN ('users', 'properties', 'user_search_history', 'calculator_data', 'comparables_data', 'subscriptions')
+      AND table_name IN ('users', 'properties', 'user_search_history', 'calculator_data', 'comparables_data', 'subscriptions', 'user_tabs')
     `)
     
-    const expectedTables = ['users', 'properties', 'user_search_history', 'calculator_data', 'comparables_data', 'subscriptions']
+    const expectedTables = ['users', 'properties', 'user_search_history', 'calculator_data', 'comparables_data', 'subscriptions', 'user_tabs']
     const existingTables = result.rows.map((row: any) => row.table_name)
     
     const allTablesExist = expectedTables.every(table => existingTables.includes(table))

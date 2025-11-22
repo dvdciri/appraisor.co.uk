@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import DashboardHeader from './components/DashboardHeader'
@@ -16,6 +16,8 @@ export default function DashboardV2Page() {
   ])
   const [activeTabId, setActiveTabId] = useState<string>('tab-1')
   const [activeTabMeasurements, setActiveTabMeasurements] = useState<TabMeasurements | null>(null)
+  const [isLoadingTabs, setIsLoadingTabs] = useState(true)
+  const hasLoadedTabs = useRef(false)
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -26,8 +28,61 @@ export default function DashboardV2Page() {
     }
   }, [session, status, router])
 
-  // Show loading while checking authentication
-  if (status === 'loading') {
+  // Load tabs from database on mount
+  useEffect(() => {
+    if (status === 'loading' || !session || hasLoadedTabs.current) return
+
+    const loadTabs = async () => {
+      try {
+        const response = await fetch('/api/db/tabs')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.tabs && Array.isArray(data.tabs) && data.tabs.length > 0) {
+            setTabs(data.tabs)
+            if (data.activeTabId) {
+              setActiveTabId(data.activeTabId)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading tabs:', error)
+      } finally {
+        setIsLoadingTabs(false)
+        hasLoadedTabs.current = true
+      }
+    }
+
+    loadTabs()
+  }, [session, status])
+
+  // Save tabs to database whenever they change
+  useEffect(() => {
+    if (status === 'loading' || !session || !hasLoadedTabs.current) return
+
+    const saveTabs = async () => {
+      try {
+        await fetch('/api/db/tabs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            tabs,
+            activeTabId,
+          }),
+        })
+      } catch (error) {
+        console.error('Error saving tabs:', error)
+      }
+    }
+
+    // Debounce saves to avoid too many requests
+    const timeoutId = setTimeout(saveTabs, 300)
+    return () => clearTimeout(timeoutId)
+  }, [tabs, activeTabId, session, status])
+
+  // Show loading while checking authentication or loading tabs
+  if (status === 'loading' || isLoadingTabs) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <div className="animate-spin rounded-full h-16 w-16 border-4 border-bg-subtle border-t-accent"></div>
