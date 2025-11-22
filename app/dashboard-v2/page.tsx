@@ -126,33 +126,9 @@ export default function DashboardV2Page() {
 
               {/* Main Panel Container - Borders on all sides, top-right rounded corner */}
               <div 
-                className="flex-1 flex flex-col min-h-0 rounded-b-2xl rounded-tr-2xl shadow-2xl backdrop-blur-xl border-l border-r border-b border-gray-500/30 bg-black/20 overflow-hidden relative"
+                className="flex-1 flex flex-col min-h-0 rounded-b-2xl rounded-tr-2xl shadow-2xl backdrop-blur-xl border border-gray-500/30 bg-black/20 overflow-hidden relative"
               >
-                {/* Top border with gap - full border if no measurements, otherwise gap at tab position */}
-                {activeTabMeasurements ? (
-                  <>
-                    {/* Left border segment */}
-                    {activeTabMeasurements.left > 0 && (
-                      <div
-                        className="absolute top-0 left-0 h-[1px] bg-gray-500/30"
-                        style={{
-                          width: `${activeTabMeasurements.left}px`,
-                        }}
-                      />
-                    )}
-                    {/* Right border segment - positioned from left edge of tab end to right edge of container */}
-                    <div
-                      className="absolute top-0 h-[1px] bg-gray-500/30"
-                      style={{
-                        left: `${activeTabMeasurements.left + activeTabMeasurements.width - 2}px`,
-                        right: '0',
-                      }}
-                    />
-                  </>
-                ) : (
-                  /* Fallback: full top border when measurements not available */
-                  <div className="absolute top-0 left-0 right-0 h-[1px] bg-gray-500/30" />
-                )}
+               
                 {/* Tab Content Area */}
                 <div className="flex-1 overflow-hidden bg-black/20">
                   <TabContent propertyUPRN={activeTab?.propertyUPRN} />
